@@ -1,0 +1,488 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Inventario">
+<meta name="theme-color" content="#0a7aff"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png">
+<title>Inventario Victor Jr</title>
+<style>
+/* Layout: sticky glass header (search + filters), flat list, floating glass tab bar, bottom sheet for editing. */
+:root{
+  --bg:#eef1f7; --fg:#0b0d12; --muted:#5d6472; --accent:#0a7aff; --ok:#1f9d55; --warn:#d9822b;
+  --glass:rgba(255,255,255,.52); --glass-edge:rgba(255,255,255,.75); --glass-shadow:rgba(30,40,70,.16);
+  --row:rgba(255,255,255,.62); --hair:rgba(20,30,60,.10); --field:rgba(120,130,160,.14);
+  --blob1:#9cc3ff; --blob2:#ffc2e0; --blob3:#b9f0d6;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0a0c12; --fg:#f2f4f9; --muted:#9aa2b2; --accent:#4da3ff; --ok:#46d083; --warn:#f0a050;
+  --glass:rgba(40,46,64,.50); --glass-edge:rgba(255,255,255,.20); --glass-shadow:rgba(0,0,0,.5);
+  --row:rgba(34,40,58,.55); --hair:rgba(255,255,255,.10); --field:rgba(150,160,190,.18);
+  --blob1:#1f4fa8; --blob2:#7a2a6a; --blob3:#1d6b57; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0a0c12; --fg:#f2f4f9; --muted:#9aa2b2; --accent:#4da3ff; --ok:#46d083; --warn:#f0a050;
+  --glass:rgba(40,46,64,.50); --glass-edge:rgba(255,255,255,.20); --glass-shadow:rgba(0,0,0,.5);
+  --row:rgba(34,40,58,.55); --hair:rgba(255,255,255,.10); --field:rgba(150,160,190,.18);
+  --blob1:#1f4fa8; --blob2:#7a2a6a; --blob3:#1d6b57; color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;
+  padding-block:env(safe-area-inset-top,0px) 110px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.blobs{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.blobs i{position:absolute;width:70vmax;height:70vmax;border-radius:50%;filter:blur(70px);opacity:.75}
+.blobs i:nth-child(1){background:var(--blob1);top:-25vmax;left:-20vmax}
+.blobs i:nth-child(2){background:var(--blob2);top:30vh;right:-35vmax}
+.blobs i:nth-child(3){background:var(--blob3);bottom:-30vmax;left:-10vmax}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(26px) saturate(190%);backdrop-filter:blur(26px) saturate(190%);
+  border:1px solid var(--glass-edge);box-shadow:0 10px 30px var(--glass-shadow),inset 0 1.5px 0 rgba(255,255,255,.55),inset 0 -1px 0 rgba(255,255,255,.12)}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;margin:0 -8px;padding:10px 8px 8px}
+.top{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:6px 6px 8px}
+h1{font-size:30px;line-height:1.1;margin:0;letter-spacing:-.02em;font-weight:700;text-wrap:balance}
+.count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.search{display:flex;align-items:center;gap:8px;border-radius:999px;padding:0 14px;height:46px}
+.search svg{flex:none;opacity:.6}
+input,select,button{font:inherit;color:inherit}
+.search input{flex:1;min-width:0;background:none;border:0;outline:0;font-size:17px}
+.chips{display:flex;gap:8px;margin-top:10px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--glass-edge);background:var(--glass);border-radius:999px;padding:7px 14px;font-size:14px;font-weight:600}
+.chip[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:transparent}
+select.chip{appearance:none;-webkit-appearance:none;max-width:60vw}
+.list{border-radius:22px;overflow:hidden;background:var(--row);border:1px solid var(--glass-edge);box-shadow:0 8px 24px var(--glass-shadow)}
+.item{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:none;border:0;padding:11px 14px;border-bottom:1px solid var(--hair)}
+.item:last-child{border-bottom:0}
+.item:active{background:var(--field)}
+.th{flex:none;width:48px;height:48px;border-radius:12px;background:var(--field) center/cover;display:grid;place-items:center;color:var(--muted)}
+.mid{flex:1;min-width:0}
+.name{font-size:15px;font-weight:600;line-height:1.25;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sub{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.end{flex:none;text-align:right;font-variant-numeric:tabular-nums}
+.price{font-weight:700;font-size:15px}
+.price.ch{color:var(--warn)}
+.stock{display:inline-block;margin-top:3px;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--field);color:var(--muted)}
+.stock.on{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok)}
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;justify-content:center;padding:0 16px calc(12px + env(safe-area-inset-bottom,0px))}
+nav .bar{display:flex;gap:4px;padding:6px;border-radius:999px;width:min(360px,100%)}
+nav button{flex:1;border:0;background:none;border-radius:999px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--muted)}
+nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
+.page[hidden]{display:none}
+.card{border-radius:24px;padding:18px;margin-top:12px}
+.card h2{margin:0 0 4px;font-size:18px;letter-spacing:-.01em}
+.card p{margin:0 0 12px;color:var(--muted);font-size:14px;line-height:1.4}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.stat{border-radius:20px;padding:14px}
+.stat b{display:block;font-size:24px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+.bigbtn{display:block;width:100%;border:0;border-radius:16px;padding:14px;font-size:17px;font-weight:600;background:var(--accent);color:#fff;text-align:center}
+.bigbtn.sec{background:var(--field);color:var(--fg)}
+.bigbtn+.bigbtn{margin-top:10px}
+.bigbtn:disabled{opacity:.45}
+.scrim{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;max-height:92%;overflow:auto;border-radius:30px 30px 0 0;padding:14px 18px calc(18px + env(safe-area-inset-bottom,0px));
+  padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));
+  transform:translateY(105%);transition:transform .32s cubic-bezier(.2,.9,.25,1);max-width:640px;margin:0 auto}
+.sheet.on{transform:none}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--hair);margin:0 auto 12px}
+.sheet h3{margin:0;font-size:19px;line-height:1.25;letter-spacing:-.01em;overflow-wrap:anywhere}
+.code{font-size:12px;color:var(--muted);margin:3px 0 14px;font-variant-numeric:tabular-nums}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px}
+.fld{width:100%;height:48px;border-radius:14px;border:0;background:var(--field);padding:0 14px;font-size:17px;outline:0}
+.fld:focus-visible,.bigbtn:focus-visible,.chip:focus-visible,.item:focus-visible,nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.step{display:flex;gap:10px;align-items:center}
+.step button{flex:none;width:56px;height:48px;border:0;border-radius:14px;background:var(--field);font-size:26px;line-height:1}
+.step .fld{text-align:center;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.photo{display:flex;gap:12px;align-items:center}
+.photo .th{width:84px;height:84px;border-radius:18px}
+.photo .col{flex:1;display:flex;flex-direction:column;gap:8px}
+.mini{border:0;border-radius:12px;padding:10px;background:var(--field);font-weight:600;font-size:14px;text-align:center}
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);z-index:30;padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;max-width:90%;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="blobs"><i></i><i></i><i></i></div>
+
+<section class="page" id="p-inv">
+  <header>
+    <div class="glass" style="border-radius:28px;padding:8px 12px 6px">
+      <div class="top"><h1>Inventario</h1><span class="count" id="count"></span><button class="chip" id="b-new" style="background:var(--accent);color:#fff;border-color:transparent;padding:6px 14px">+ Nuevo</button></div>
+      <label class="search glass" style="box-shadow:none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Nombre, código o ubicación" autocomplete="off" autocapitalize="off" enterkeyhint="search">
+      </label>
+      <div class="chips" id="chips">
+        <button class="chip" id="pill" data-s="off" style="font-size:12px;padding:5px 10px;align-self:center"></button>
+        <button class="chip" data-f="all" aria-pressed="true">Todos</button>
+        <button class="chip" data-f="todo" aria-pressed="false">Sin contar</button>
+        <button class="chip" data-f="done" aria-pressed="false">Contados</button>
+        <select class="chip" id="cat" aria-label="Categoría"><option value="">Categoría</option></select>
+      </div>
+    </div>
+  </header>
+  <div class="list" id="list" style="margin-top:12px"></div>
+  <div id="more" style="height:1px"></div>
+</section>
+
+<section class="page" id="p-exp" hidden>
+  <div class="top" style="padding-top:18px"><h1>Resumen</h1></div>
+  <div class="stats">
+    <div class="stat glass"><b id="s-done">0</b><span>productos contados</span></div>
+    <div class="stat glass"><b id="s-left">0</b><span>por contar</span></div>
+    <div class="stat glass"><b id="s-price">0</b><span>precios cambiados</span></div>
+    <div class="stat glass"><b id="s-val">$0</b><span>valor contado a PVP</span></div>
+  </div>
+  <div class="card glass">
+    <h2>Base de datos nueva</h2>
+    <p>Excel con las mismas columnas del original, más Posición y Contado. Lo que no se contó sale con stock 0. También se copia a tu Drive.</p>
+    <button class="bigbtn" id="b-xlsx">Descargar Excel</button>
+  </div>
+  <div class="card glass">
+    <h2>Reiniciar conteo</h2>
+    <p>Pone todo el stock en 0 y marca los productos como sin contar. Los precios, posiciones y fotos se conservan.</p>
+    <button class="bigbtn sec" id="b-reset" style="color:#e5484d">Reiniciar conteo</button>
+  </div>
+  <div class="card glass"><h2>Google Drive</h2><p id="conn-msg">Conectar con Google</p>
+    <button class="bigbtn sec" id="b-conn">Conectar con Google</button><button class="bigbtn sec" id="b-sync">Sincronizar ahora</button></div>
+  </section>
+
+<nav><div class="bar glass">
+  <button id="t-inv" aria-current="page"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Inventario</button>
+  <button id="t-exp"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Resumen</button>
+</div></nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet glass" id="sheet" role="dialog" aria-modal="true" aria-label="Editar producto">
+  <div class="grab"></div>
+  <h3 id="e-name"></h3>
+  <div class="code" id="e-code"></div>
+  <div id="e-newf" hidden>
+    <div class="lbl" style="margin-top:0">Nombre</div><input class="fld" id="n-desc" autocapitalize="characters" placeholder="MARCA - PRODUCTO">
+    <div class="row2">
+      <div><div class="lbl">Código</div><input class="fld" id="n-code" placeholder="Opcional" autocapitalize="characters"></div>
+      <div><div class="lbl">IVA</div><select class="fld" id="n-iva"><option>IVA 15%</option><option>IVA 0%</option><option>IVA 8%</option><option>IVA 5%</option></select></div>
+    </div>
+    <div class="lbl">Categoría</div><input class="fld" id="n-cat" list="cats" placeholder="Categoría"><datalist id="cats"></datalist>
+  </div>
+  <div class="lbl" id="e-slbl" style="margin-top:14px">Stock real contado</div>
+  <div class="step"><button id="e-m" aria-label="Menos">−</button><input class="fld" id="e-s" inputmode="decimal" aria-label="Stock"><button id="e-p" aria-label="Más">+</button></div>
+  <div class="row2">
+    <div><div class="lbl">PVP con IVA</div><input class="fld" id="e-pr" inputmode="decimal"></div>
+    <div><div class="lbl">Posición</div><input class="fld" id="e-pos" placeholder="Pasillo 3, estante B" autocapitalize="sentences"></div>
+  </div>
+  <div class="lbl">Foto</div>
+  <div class="photo">
+    <div class="th" id="e-th"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div>
+    <div class="col">
+      <label class="mini" style="cursor:pointer" id="e-phl">Tomar o elegir foto<input id="e-ph" type="file" accept="image/*" hidden></label>
+      <button class="mini" id="e-phx" hidden>Quitar foto</button>
+    </div>
+  </div>
+  <button class="mini" id="e-del" hidden style="width:100%;margin-top:16px;color:#e5484d">Eliminar producto nuevo</button>
+  <div style="display:flex;gap:10px;margin-top:20px">
+    <button class="bigbtn sec" id="e-cancel" style="flex:1">Cancelar</button>
+    <button class="bigbtn" id="e-save" style="flex:2;margin:0">Guardar</button>
+  </div>
+</div>
+<div class="toast glass" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+const $=id=>document.getElementById(id);
+const norm=s=>String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>'$'+(+n).toFixed(2);
+const num=s=>{const v=parseFloat(String(s).replace(',','.'));return isFinite(v)?v:null};
+const LS=k=>{try{return localStorage.getItem(k)}catch(_){return null}};
+const LSs=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(_){}};
+const FOLDER='Inventario Victor Jr', SCOPE='https://www.googleapis.com/auth/drive.file';
+
+/* ---------- almacenamiento local (IndexedDB): fuente de verdad en el teléfono ---------- */
+let idb;
+const idbOpen=()=>new Promise((res,rej)=>{const r=indexedDB.open('victorjr-drive',1);
+  r.onupgradeneeded=()=>['kv','ov','ph'].forEach(n=>r.result.createObjectStore(n));r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const req=r=>new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const st=(n,m)=>idb.transaction(n,m).objectStore(n);
+const kvGet=k=>req(st('kv').get(k)), kvSet=(k,v)=>req(st('kv','readwrite').put(v,k));
+const phGet=k=>req(st('ph').get(k)), phPut=(k,b)=>req(st('ph','readwrite').put(b,k));
+const ovPut=(k,v)=>req(st('ov','readwrite').put(v,k));
+const ovAll=()=>new Promise(res=>{const o=[];const c=st('ov').openCursor();c.onsuccess=()=>{const k=c.result;if(k){o.push([k.key,k.value]);k.continue()}else res(o)};c.onerror=()=>res(o)});
+
+/* ---------- modelo ---------- */
+// fila de catálogo: [codigo, descripcion, precio, iva, categoria, stockMin, costo, idAppConto, idNuevo]
+let catalog=[], items=[], byId=new Map(), view=[], shown=0, filt='all', cat='', cur=null, draft=null, newMode=false, busy=false;
+const ov=new Map();      // id -> {t, s?, p?, pos?, ph?, pf?, del?}   s presente = contado; del = borrado
+const mk=r=>({row:r,code:String(r[0]),desc:r[1],price:+r[2]||0,iva:r[3],cat:r[4]||'',min:r[5],cost:r[6],xid:r[8]?'':r[7],isNew:!!r[8],id:r[8]||String(r[7]),n:norm(r[0]+' '+r[1])});
+function loadItems(){items=catalog.map(mk);byId=new Map(items.map(i=>[i.id,i]));items.forEach(i=>{const o=live(i.id);i.pn=o&&o.pos?norm(o.pos):''})}
+const live=id=>{const o=ov.get(id);return o&&!o.del?o:null};
+const counted=i=>{const o=live(i.id);return !!o&&o.s!=null};
+function setOv(id,v){ov.set(id,v);const i=byId.get(id);if(i)i.pn=v.pos&&!v.del?norm(v.pos):''}
+function put(id,v){v.t=Date.now();setOv(id,v);ovPut(id,v).catch(()=>toast('No se pudo guardar en el teléfono'));markDirty()}
+const unput=id=>put(id,{del:1});
+function markDirty(){kvSet('dirty',1).catch(()=>{});setStatus(tok()?'pend':'off');clearTimeout(sy);sy=setTimeout(sync,2500)}
+let sy;
+
+/* ---------- Google: sesión y Drive ---------- */
+let tc=null;
+const tok=()=>{try{const t=JSON.parse(LS('tk'));return t&&t.exp>Date.now()+60000?t.a:null}catch(_){return null}};
+function initGoogle(){
+  const cid=LS('cid');if(!cid||tc)return;
+  if(!window.google||!google.accounts){return setTimeout(initGoogle,400)}
+  tc=google.accounts.oauth2.initTokenClient({client_id:cid,scope:SCOPE,callback:()=>{},error_callback:()=>{}});
+  if(LS('everConnected'))connect(true).then(ok=>ok&&sync());
+}
+function connect(silent){return new Promise(res=>{
+  if(!tc)return res(false);
+  tc.callback=r=>{if(r&&r.access_token){LSs('tk',JSON.stringify({a:r.access_token,exp:Date.now()+(r.expires_in||3600)*1000}));LSs('everConnected','1');res(true)}else res(false)};
+  tc.error_callback=()=>res(false);
+  try{tc.requestAccessToken({prompt:silent?'none':''})}catch(_){res(false)}
+})}
+async function g(url,o={}){
+  const t=tok();if(!t)throw{code:'auth'};
+  const r=await fetch(url,{...o,headers:{...o.headers,Authorization:'Bearer '+t}});
+  if(r.status===401){LSs('tk',null);throw{code:'auth'}}
+  if(!r.ok&&r.status!==404)throw{code:'http',status:r.status};
+  return r;
+}
+const API='https://www.googleapis.com/drive/v3/files', UP='https://www.googleapis.com/upload/drive/v3/files';
+const q=s=>encodeURIComponent(s);
+async function list(query){return (await (await g(`${API}?q=${q(query)}&fields=files(id,name,modifiedTime)&pageSize=100`)).json()).files||[]}
+async function createFile(name,parent,blob,mime){
+  const b='xb'+Date.now(),meta=JSON.stringify({name,parents:[parent]});
+  const body=new Blob([`--${b}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: ${mime}\r\n\r\n`,blob,`\r\n--${b}--`]);
+  return (await g(`${UP}?uploadType=multipart&fields=id,modifiedTime`,{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body})).json();
+}
+async function updateFile(id,blob,mime){return (await g(`${UP}/${id}?uploadType=media&fields=id,modifiedTime`,{method:'PATCH',headers:{'Content-Type':mime},body:blob})).json()}
+const getJson=async id=>(await g(`${API}/${id}?alt=media`)).json();
+const jblob=o=>new Blob([JSON.stringify(o)],{type:'application/json'});
+
+let syncing=false;
+async function sync(){
+  if(syncing||!idb||!tok())return setStatus(tok()?'ok':'off');
+  syncing=true;setStatus('sync');
+  try{
+    let folder=await kvGet('folder');
+    if(!folder){const f=await list(`name='${FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+      folder=f[0]?f[0].id:(await (await g(API+'?fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:FOLDER,mimeType:'application/vnd.google-apps.folder'})})).json()).id;
+      await kvSet('folder',folder)}
+    const fl=await list(`'${folder}' in parents and trashed=false and (name='catalog.json' or name='ov.json')`);
+    const fc=fl.find(f=>f.name==='catalog.json'),fo=fl.find(f=>f.name==='ov.json');
+    /* catálogo */
+    const catDirty=await kvGet('catDirty'),catMod=(await kvGet('catMod'))||'';
+    if(catDirty||(!fc&&catalog.length)){
+      const r=fc?await updateFile(fc.id,jblob(catalog),'application/json'):await createFile('catalog.json',folder,jblob(catalog),'application/json');
+      await kvSet('catMod',r.modifiedTime);await kvSet('catDirty',0);
+    }else if(fc&&(!catalog.length||fc.modifiedTime>catMod)){
+      catalog=await getJson(fc.id);await kvSet('catalog',catalog);await kvSet('catMod',fc.modifiedTime);loadItems();
+    }
+    /* conteo: se une por producto, gana lo más reciente */
+    const remote=fo?await getJson(fo.id):{};let push=!fo;
+    for(const id in remote){const r=remote[id],l=ov.get(id);
+      if(!l||(r.t||0)>(l.t||0)||(r.t===l.t&&r.pf&&!l.pf)){setOv(id,r);await ovPut(id,r)}}
+    /* fotos pendientes */
+    for(const [id,l] of ov){
+      if(l.ph&&!l.pf&&!l.del){const b=await phGet(l.ph).catch(()=>null);
+        if(b){const r=await createFile(l.ph+'.jpg',folder,b,'image/jpeg');l.pf=r.id;await ovPut(id,l);push=true}}
+      const r=remote[id];if(!r||l.t>r.t||l.pf!==r.pf)push=true;
+    }
+    const dels=(await kvGet('del'))||[];
+    for(const f of dels)await g(`${API}/${f}`,{method:'DELETE'}).catch(()=>{});
+    if(dels.length)await kvSet('del',[]);
+    if(push)await (async()=>{const m=Object.fromEntries(ov);fo?await updateFile(fo.id,jblob(m),'application/json'):await createFile('ov.json',folder,jblob(m),'application/json')})();
+    await kvSet('dirty',0);setStatus('ok');renderAll();
+  }catch(e){setStatus(e&&e.code==='auth'?'off':'err')}
+  syncing=false;
+}
+const STXT={off:'Conectar con Google',sync:'Sincronizando…',ok:'Guardado en Drive',pend:'Por subir a Drive',err:'Error al sincronizar'};
+function setStatus(s){const p=$('pill');p.textContent=(s==='ok'?'☁︎ ':s==='off'||s==='err'?'⚠︎ ':'')+STXT[s];p.dataset.s=s;if($('conn-msg'))$('conn-msg').textContent=STXT[s]}
+$('pill').onclick=async()=>{const s=$('pill').dataset.s;if(s==='off'||s==='err'){if(await connect(false))sync();else toast('No se pudo conectar con Google')}else sync()};
+
+/* ---------- fotos ---------- */
+const urls=new Map();
+async function photoUrl(o){
+  if(!o||!o.ph)return null;if(urls.has(o.ph))return urls.get(o.ph);
+  let b=await phGet(o.ph).catch(()=>null);
+  if(!b&&o.pf&&tok()){try{b=await (await g(`${API}/${o.pf}?alt=media`)).blob();await phPut(o.ph,b)}catch(_){}}
+  if(!b)return null;const u=URL.createObjectURL(b);urls.set(o.ph,u);return u;
+}
+function hydrate(){document.querySelectorAll('.th[data-k]:not([data-d])').forEach(t=>{t.dataset.d=1;
+  photoUrl(live(t.closest('.item').dataset.id)).then(u=>{if(u){t.style.backgroundImage=`url('${u}')`;t.textContent=''}})})}
+
+/* ---------- lista ---------- */
+const PAGE=60;
+function apply(){
+  const w=norm($('q').value).split(/\s+/).filter(Boolean);
+  view=items.filter(i=>{const c=counted(i);
+    if(filt==='todo'&&c)return false;if(filt==='done'&&!c)return false;if(cat&&i.cat!==cat)return false;
+    const h=i.n+' '+(i.pn||'');return w.every(t=>h.includes(t))});
+  $('list').innerHTML='';shown=0;
+  if(!items.length)return gate();
+  more();$('count').textContent=view.length.toLocaleString('es')+' productos';
+  if(!view.length)$('list').innerHTML='<div class="empty">Nada con ese filtro.</div>';
+  const cs=[...new Set(items.map(i=>i.cat).filter(Boolean))].sort();
+  if($('cat').options.length!==cs.length+1){$('cat').length=1;$('cats').innerHTML='';cs.forEach(c=>{$('cat').add(new Option(c,c));$('cats').appendChild(new Option(c))});$('cat').value=cat}
+}
+function rowHtml(i){
+  const o=live(i.id),p=o&&o.p!=null?o.p:i.price,c=counted(i);
+  const sub=[i.code,o&&o.pos?'📍 '+o.pos:'',i.isNew?'Nuevo':''].filter(Boolean).map(esc).join(' · ');
+  return `<button class="item" data-id="${esc(i.id)}"><div class="th" ${o&&o.ph?'data-k="1"':''}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg></div>
+  <div class="mid"><div class="name">${esc(i.desc)}</div><div class="sub">${sub}</div></div>
+  <div class="end"><div class="price ${o&&o.p!=null?'ch':''}">${money(p)}</div><span class="stock ${c?'on':''}">${c?o.s:0}</span></div></button>`;
+}
+function more(){if(shown>=view.length)return;$('list').insertAdjacentHTML('beforeend',view.slice(shown,shown+PAGE).map(rowHtml).join(''));shown+=PAGE;hydrate()}
+new IntersectionObserver(e=>{if(e[0].isIntersecting)more()},{rootMargin:'600px'}).observe($('more'));
+let tm;$('q').addEventListener('input',()=>{clearTimeout(tm);tm=setTimeout(apply,140)});
+$('chips').addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;filt=b.dataset.f;
+  document.querySelectorAll('[data-f]').forEach(x=>x.setAttribute('aria-pressed',x===b));apply()});
+$('cat').addEventListener('change',e=>{cat=e.target.value;apply()});
+function refreshRow(id){const el=$('list').querySelector(`[data-id="${CSS.escape(id)}"]`);if(el&&filt==='all'){el.outerHTML=rowHtml(byId.get(id));hydrate()}else apply()}
+const renderAll=()=>{apply();if(!$('p-exp').hidden)stats()};
+
+/* ---------- pantalla inicial: Client ID, conectar, importar Excel ---------- */
+function gate(){
+  $('count').textContent='';
+  const cid=LS('cid');let h;
+  if(!cid)h=`<div class="card" style="margin:0"><h2>Conectar tu Drive</h2>
+    <p>Esta app guarda todo en una carpeta de tu Google Drive. Necesita un “Client ID” gratuito que se crea una sola vez.</p>
+    <ol style="margin:0 0 14px;padding-left:20px;font-size:14px;line-height:1.5;color:var(--muted)">
+    <li>Entra a console.cloud.google.com y crea un proyecto.</li>
+    <li>En “APIs y servicios”, activa <b>Google Drive API</b>.</li>
+    <li>En “Pantalla de consentimiento”, elige Externo, pon un nombre y tu correo, y publícala.</li>
+    <li>En “Credenciales”, crea un <b>ID de cliente OAuth</b> tipo Aplicación web. En “Orígenes autorizados” pon <b>${esc(location.origin)}</b></li>
+    <li>Copia el ID y pégalo aquí.</li></ol>
+    <input class="fld" id="g-cid" placeholder="123456-abc.apps.googleusercontent.com" autocapitalize="off" autocomplete="off">
+    <button class="bigbtn" id="g-save" style="margin-top:12px">Guardar</button></div>`;
+  else if(!tok()&&!LS('everConnected'))h=`<div class="card" style="margin:0"><h2>Conectar tu Drive</h2><p>Inicia sesión con tu cuenta de Google. La app solo ve su propia carpeta “${FOLDER}”.</p><button class="bigbtn" id="g-conn">Conectar con Google</button></div>`;
+  else h=`<div class="card" style="margin:0"><h2>Cargar el inventario</h2><p id="g-msg">Si ya subiste el catálogo desde otro dispositivo, toca Sincronizar. Si no, elige tu Excel de productos.</p>
+    <label class="bigbtn" style="cursor:pointer">Elegir Excel<input id="g-xls" type="file" accept=".xlsx" hidden></label>
+    <button class="bigbtn sec" id="g-sync">Sincronizar</button></div>`;
+  $('list').innerHTML=h;
+}
+$('list').addEventListener('click',async e=>{
+  const t=e.target;
+  if(t.id==='g-save'){const v=$('g-cid').value.trim();if(!/\.apps\.googleusercontent\.com$/.test(v))return toast('El ID debe terminar en .apps.googleusercontent.com');LSs('cid',v);initGoogle();gate()}
+  else if(t.id==='g-conn'){if(await connect(false)){sync()}else toast('No se pudo conectar con Google');gate()}
+  else if(t.id==='g-sync'){sync()}
+  else{const b=t.closest('.item');if(b)openSheet(byId.get(b.dataset.id))}
+});
+$('list').addEventListener('change',async e=>{
+  if(e.target.id!=='g-xls')return;const f=e.target.files[0];if(!f)return;
+  try{
+    const wb=XLSX.read(await f.arrayBuffer()),ws=wb.Sheets.productos||wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1}),h=rows[0].map(norm),ix=n=>h.findIndex(x=>x.startsWith(n));
+    const c=['codigo','descripcion','precio','iva','categoria','stock minimo','costo','id appconto'].map(ix);
+    if(c[0]<0||c[1]<0||c[2]<0)throw 0;
+    catalog=rows.slice(1).filter(r=>r[c[0]]!=null&&r[c[1]]).map(r=>[String(r[c[0]]),r[c[1]],r[c[2]],c[3]<0?'':r[c[3]],c[4]<0?'':r[c[4]],c[5]<0?null:r[c[5]],c[6]<0?null:r[c[6]],c[7]<0?'':r[c[7]]]);
+    await kvSet('catalog',catalog);await kvSet('catDirty',1);loadItems();apply();toast(catalog.length+' productos cargados');sync();
+  }catch(_){toast('No pude leer ese Excel')}
+});
+
+/* ---------- hoja de edición / producto nuevo ---------- */
+function setThumb(src){const t=$('e-th');t.style.backgroundImage=src?`url('${src}')`:'';t.firstElementChild.style.display=src?'none':'';$('e-phx').hidden=!src}
+function show(){$('scrim').classList.add('on');$('sheet').classList.add('on')}
+async function openSheet(i){
+  newMode=!i;cur=i;const o=(i&&live(i.id))||{};
+  draft={old:o.ph?{ph:o.ph,pf:o.pf}:null,cur:o.ph?{ph:o.ph,pf:o.pf}:null};
+  $('e-newf').hidden=!newMode;$('e-del').hidden=!(i&&i.isNew);$('e-del').textContent='Eliminar producto nuevo';
+  $('e-name').textContent=i?i.desc:'Producto nuevo';$('e-code').textContent=i?i.code+(i.cat?' · '+i.cat:''):'';
+  $('e-s').value=o.s!=null?o.s:0;$('e-pr').value=(o.p!=null?o.p:i?i.price:0).toFixed(2);$('e-pos').value=o.pos||'';
+  ['n-desc','n-code','n-cat'].forEach(k=>$(k).value='');$('n-iva').selectedIndex=0;
+  setThumb(null);show();
+  if(o.ph)photoUrl(o).then(u=>{if(cur===i&&draft.cur&&!draft.cur.blob)setThumb(u)});
+}
+function closeSheet(){$('scrim').classList.remove('on');$('sheet').classList.remove('on');cur=null}
+$('scrim').onclick=$('e-cancel').onclick=()=>{if(!busy)closeSheet()};
+$('b-new').onclick=()=>openSheet(null);
+const bump=d=>{const v=(num($('e-s').value)||0)+d;$('e-s').value=Math.max(0,Math.round(v*100)/100)};
+$('e-m').onclick=()=>bump(-1);$('e-p').onclick=()=>bump(1);
+$('e-s').addEventListener('focus',e=>e.target.select());
+$('e-ph').addEventListener('change',async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const bm=await createImageBitmap(f),k=Math.min(1,900/Math.max(bm.width,bm.height)),c=document.createElement('canvas');
+    c.width=Math.round(bm.width*k);c.height=Math.round(bm.height*k);c.getContext('2d').drawImage(bm,0,0,c.width,c.height);
+    const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.75)),url=URL.createObjectURL(blob);
+    draft.cur={blob,url};setThumb(url)}catch(_){toast('No se pudo leer la foto')}
+});
+$('e-phx').onclick=()=>{draft.cur=null;setThumb(null)};
+$('e-save').onclick=async()=>{
+  if(busy)return;const s=num($('e-s').value),p=num($('e-pr').value);
+  if(s==null||s<0)return toast('Stock inválido');if(p==null||p<0)return toast('Precio inválido');
+  let it=cur;
+  if(newMode){
+    const desc=$('n-desc').value.trim();if(!desc)return toast('Escribe el nombre del producto');
+    const code=$('n-code').value.trim()||'NUEVO'+Date.now().toString(36).toUpperCase();
+    if(items.some(x=>x.code===code))return toast('Ese código ya existe');
+    const row=[code,desc,Math.round(p*100)/100,$('n-iva').value,$('n-cat').value.trim(),null,null,'','n'+Date.now().toString(36)];
+    catalog.push(row);it=mk(row);items.push(it);byId.set(it.id,it);
+    await kvSet('catalog',catalog);await kvSet('catDirty',1);
+  }
+  const v={s};if(Math.abs(p-it.price)>=0.005)v.p=Math.round(p*100)/100;
+  const pos=$('e-pos').value.trim();if(pos)v.pos=pos;
+  const d=draft.cur;
+  if(d&&d.blob){v.ph=it.id+'-'+Date.now();try{await phPut(v.ph,d.blob)}catch(_){toast('No se pudo guardar la foto');delete v.ph}}
+  else if(d){v.ph=d.ph;if(d.pf)v.pf=d.pf}
+  if(draft.old&&draft.old.pf&&(!v.ph||v.pf!==draft.old.pf)){const ds=(await kvGet('del'))||[];ds.push(draft.old.pf);await kvSet('del',ds)}
+  put(it.id,v);closeSheet();
+  if(newMode){apply();toast('Producto agregado')}else{refreshRow(it.id);toast('Guardado')}
+};
+$('e-del').onclick=async()=>{
+  const b=$('e-del');if(!cur||busy)return;
+  if(b.dataset.arm!=='1'){b.dataset.arm='1';b.textContent='Toca otra vez para eliminar';setTimeout(()=>{b.dataset.arm='';b.textContent='Eliminar producto nuevo'},3500);return}
+  const i=cur,o=live(i.id);b.dataset.arm='';
+  if(o&&o.pf){const ds=(await kvGet('del'))||[];ds.push(o.pf);await kvSet('del',ds)}
+  catalog=catalog.filter(r=>r!==i.row);await kvSet('catalog',catalog);await kvSet('catDirty',1);
+  unput(i.id);loadItems();closeSheet();apply();toast('Eliminado');
+};
+
+/* ---------- pestañas, resumen, reinicio ---------- */
+function tab(n){$('p-inv').hidden=n!=='inv';$('p-exp').hidden=n!=='exp';
+  $('t-inv').toggleAttribute('aria-current',n==='inv');$('t-exp').toggleAttribute('aria-current',n==='exp');
+  if(n==='exp')stats();scrollTo(0,0)}
+$('t-inv').onclick=()=>tab('inv');$('t-exp').onclick=()=>tab('exp');
+function stats(){let v=0,pc=0,c=0;ov.forEach((o,id)=>{const i=byId.get(id);if(!i||o.del)return;if(o.p!=null)pc++;if(o.s!=null){c++;v+=o.s*(o.p!=null?o.p:i.price)}});
+  $('s-done').textContent=c.toLocaleString('es');$('s-left').textContent=(items.length-c).toLocaleString('es');
+  $('s-price').textContent=pc;$('s-val').textContent=money(v)}
+$('b-reset').onclick=()=>{
+  const b=$('b-reset');
+  if(b.dataset.arm!=='1'){b.dataset.arm='1';b.textContent='Toca otra vez para poner todo en 0';setTimeout(()=>{b.dataset.arm='';b.textContent='Reiniciar conteo'},4000);return}
+  b.dataset.arm='';b.textContent='Reiniciar conteo';
+  [...ov].forEach(([id,o])=>{if(o.del||o.s==null)return;const {s,t,...rest}=o;(rest.p!=null||rest.pos||rest.ph)?put(id,rest):unput(id)});
+  apply();stats();toast('Conteo reiniciado');
+};
+$('b-conn').onclick=async()=>{if(await connect(false))sync();else toast('No se pudo conectar con Google')};
+$('b-sync').onclick=()=>sync();
+
+/* ---------- Excel ---------- */
+$('b-xlsx').onclick=async()=>{
+  if(!window.XLSX)return toast('Falta cargar la librería Excel. Conéctate a internet');
+  const head=['Código','Descripción','Precio final (con IVA)','IVA','Categoría','Stock','Stock mínimo','Costo','ID AppConto','Posición','Contado'];
+  const rows=items.map(i=>{const o=live(i.id),c=counted(i);return[i.code,i.desc,o&&o.p!=null?o.p:i.price,i.iva,i.cat,c?o.s:0,i.min,i.cost,i.xid,o&&o.pos||'',c?'Sí':'No']});
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([head,...rows]),'productos');
+  const blob=new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const name='Inventario_Victor_Jr_contado.xlsx',a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
+  if(tok()){try{const folder=await kvGet('folder');if(folder){const ex=await list(`'${folder}' in parents and trashed=false and name='${name}'`);
+    ex[0]?await updateFile(ex[0].id,blob,blob.type):await createFile(name,folder,blob,blob.type);toast('Excel descargado y copiado a tu Drive')}}catch(_){toast('Excel descargado')}}
+  else toast('Excel descargado');
+};
+
+let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2600)}
+
+/* ---------- arranque ---------- */
+(async()=>{
+  setStatus('off');
+  try{idb=await idbOpen();
+    catalog=(await kvGet('catalog'))||[];
+    for(const [id,v] of await ovAll())ov.set(id,v);
+    navigator.storage&&navigator.storage.persist&&navigator.storage.persist();
+  }catch(_){toast('Este navegador no permite guardar en el teléfono')}
+  loadItems();apply();initGoogle();
+  if(tok())sync();
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tok()&&!syncing)sync()});
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+</body></html>
