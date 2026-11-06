@@ -481,6 +481,7 @@ let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on'
   }catch(_){toast('Este navegador no permite guardar en el teléfono')}
   loadItems();apply();initGoogle();
   if(tok())sync();
+  addEventListener('online',()=>{if(tok()&&!syncing)sync()});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tok()&&!syncing)sync()});
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
