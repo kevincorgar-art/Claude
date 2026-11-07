@@ -98,8 +98,17 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
 .photo .th{width:84px;height:84px;border-radius:18px}
 .photo .col{flex:1;display:flex;flex-direction:column;gap:8px}
 .mini{border:0;border-radius:12px;padding:10px;background:var(--field);font-weight:600;font-size:14px;text-align:center}
-.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);z-index:30;padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;max-width:90%;text-align:center}
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);z-index:50;padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;max-width:90%;text-align:center}
 .toast.on{opacity:1;transform:translate(-50%,0)}
+.scan{position:fixed;inset:0;z-index:40;background:#000}
+.scan video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.scan .ret{position:absolute;left:50%;top:50%;width:80%;max-width:420px;height:26%;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:22px;box-shadow:0 0 0 100vmax rgba(0,0,0,.5)}
+.scan .bar{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;gap:12px;color:#fff;font-weight:600;
+  padding:calc(14px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-left,0px)) 14px max(16px,env(safe-area-inset-right,0px))}
+.scan .chip{color:#fff;background:rgba(255,255,255,.22)}
+#assign{display:flex;align-items:center;gap:10px;margin:8px 0 2px;padding:10px 12px;border-radius:16px;background:color-mix(in srgb,var(--warn) 22%,transparent);font-size:13px;font-weight:600}
+#assign[hidden]{display:none}
+.sbtn{flex:none;border:0;background:none;padding:6px;margin-right:-6px;color:var(--accent);display:grid;place-items:center}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -112,12 +121,15 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
       <label class="search glass" style="box-shadow:none">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <input id="q" type="search" placeholder="Nombre, código o ubicación" autocomplete="off" autocapitalize="off" enterkeyhint="search">
+        <button type="button" class="sbtn" id="b-scan" aria-label="Escanear código de barras"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 9v6M12 9v6M16 9v6"/></svg></button>
       </label>
+      <div id="assign" hidden><span id="assign-t" style="flex:1;min-width:0"></span><button class="chip" id="assign-x">Cancelar</button></div>
       <div class="chips" id="chips">
         <button class="chip" id="pill" data-s="off" style="font-size:12px;padding:5px 10px;align-self:center"></button>
         <button class="chip" data-f="all" aria-pressed="true">Todos</button>
         <button class="chip" data-f="todo" aria-pressed="false">Sin contar</button>
         <button class="chip" data-f="done" aria-pressed="false">Contados</button>
+        <button class="chip" data-f="nobc" aria-pressed="false">Sin código de barras</button>
         <select class="chip" id="cat" aria-label="Categoría"><option value="">Categoría</option></select>
       </div>
     </div>
@@ -172,6 +184,8 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
     <div><div class="lbl">PVP con IVA</div><input class="fld" id="e-pr" inputmode="decimal"></div>
     <div><div class="lbl">Posición</div><input class="fld" id="e-pos" placeholder="Pasillo 3, estante B" autocapitalize="sentences"></div>
   </div>
+  <div class="lbl">Código de barras</div>
+  <div style="display:flex;gap:8px"><input class="fld" id="e-bc" inputmode="numeric" placeholder="Sin código" autocomplete="off" autocapitalize="off"><button class="mini" id="e-bcs" style="flex:none;padding:0 16px">Escanear</button></div>
   <div class="lbl">Foto</div>
   <div class="photo">
     <div class="th" id="e-th"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div>
@@ -186,6 +200,7 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
     <button class="bigbtn" id="e-save" style="flex:2;margin:0">Guardar</button>
   </div>
 </div>
+<div class="scan" id="scan" hidden><video id="sc-v" playsinline muted></video><div class="ret"></div><div class="bar"><span id="sc-t">Apunta al código de barras</span><button class="chip" id="sc-x">Cerrar</button></div></div>
 <div class="toast glass" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -216,10 +231,15 @@ const ovAll=()=>new Promise(res=>{const o=[];const c=st('ov').openCursor();c.ons
 let catalog=[], items=[], byId=new Map(), view=[], shown=0, filt='all', cat='', cur=null, draft=null, newMode=false, busy=false;
 const ov=new Map();      // id -> {t, s?, p?, pos?, ph?, pf?, del?}   s presente = contado; del = borrado
 const mk=r=>({row:r,code:String(r[0]),desc:r[1],price:+r[2]||0,iva:r[3],cat:r[4]||'',min:r[5],cost:r[6],xid:r[8]?'':r[7],isNew:!!r[8],id:r[8]||String(r[7]),n:norm(r[0]+' '+r[1])});
-function loadItems(){items=catalog.map(mk);byId=new Map(items.map(i=>[i.id,i]));items.forEach(i=>{const o=live(i.id);i.pn=o&&o.pos?norm(o.pos):''})}
+function loadItems(){items=catalog.map(mk);byId=new Map(items.map(i=>[i.id,i]));items.forEach(i=>{i.pn=pnOf(live(i.id))})}
+const pnOf=o=>o&&!o.del?norm((o.pos||'')+' '+(o.bc||'')):'';
+const bkey=c=>String(c==null?'':c).trim().toUpperCase().replace(/^0+(?=\d)/,'');
+const isBc=c=>/^\d{8,14}$/.test(String(c).trim());
+const bcOf=i=>{const o=live(i.id);return (o&&o.bc)||(isBc(i.code)?String(i.code).trim():'')};
+const findBc=c=>{const k=bkey(c);return k?items.filter(i=>{const o=live(i.id);return bkey(i.code)===k||(o&&o.bc&&bkey(o.bc)===k)}):[]};
 const live=id=>{const o=ov.get(id);return o&&!o.del?o:null};
 const counted=i=>{const o=live(i.id);return !!o&&o.s!=null};
-function setOv(id,v){ov.set(id,v);const i=byId.get(id);if(i)i.pn=v.pos&&!v.del?norm(v.pos):''}
+function setOv(id,v){ov.set(id,v);const i=byId.get(id);if(i)i.pn=pnOf(v)}
 function put(id,v){v.t=Date.now();setOv(id,v);ovPut(id,v).catch(()=>toast('No se pudo guardar en el teléfono'));markDirty()}
 const unput=id=>put(id,{del:1});
 function markDirty(){kvSet('dirty',1).catch(()=>{});setStatus(tok()?'pend':'off');clearTimeout(sy);sy=setTimeout(sync,2500)}
@@ -316,7 +336,7 @@ const PAGE=60;
 function apply(){
   const w=norm($('q').value).split(/\s+/).filter(Boolean);
   view=items.filter(i=>{const c=counted(i);
-    if(filt==='todo'&&c)return false;if(filt==='done'&&!c)return false;if(cat&&i.cat!==cat)return false;
+    if(filt==='todo'&&c)return false;if(filt==='done'&&!c)return false;if(filt==='nobc'&&bcOf(i))return false;if(cat&&i.cat!==cat)return false;
     const h=i.n+' '+(i.pn||'');return w.every(t=>h.includes(t))});
   $('list').innerHTML='';shown=0;
   if(!items.length)return gate();
@@ -335,8 +355,7 @@ function rowHtml(i){
 function more(){if(shown>=view.length)return;$('list').insertAdjacentHTML('beforeend',view.slice(shown,shown+PAGE).map(rowHtml).join(''));shown+=PAGE;hydrate()}
 new IntersectionObserver(e=>{if(e[0].isIntersecting)more()},{rootMargin:'600px'}).observe($('more'));
 let tm;$('q').addEventListener('input',()=>{clearTimeout(tm);tm=setTimeout(apply,140)});
-$('chips').addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;filt=b.dataset.f;
-  document.querySelectorAll('[data-f]').forEach(x=>x.setAttribute('aria-pressed',x===b));apply()});
+$('chips').addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;setFilt(b.dataset.f);apply()});
 $('cat').addEventListener('change',e=>{cat=e.target.value;apply()});
 function refreshRow(id){const el=$('list').querySelector(`[data-id="${CSS.escape(id)}"]`);if(el&&filt==='all'){el.outerHTML=rowHtml(byId.get(id));hydrate()}else apply()}
 const renderAll=()=>{apply();if(!$('p-exp').hidden)stats()};
@@ -383,18 +402,19 @@ $('list').addEventListener('change',async e=>{
 /* ---------- hoja de edición / producto nuevo ---------- */
 function setThumb(src){const t=$('e-th');t.style.backgroundImage=src?`url('${src}')`:'';t.firstElementChild.style.display=src?'none':'';$('e-phx').hidden=!src}
 function show(){$('scrim').classList.add('on');$('sheet').classList.add('on')}
-async function openSheet(i){
-  newMode=!i;cur=i;const o=(i&&live(i.id))||{};
+async function openSheet(i,scanned){
+  fromScan=!!scanned;newMode=!i;cur=i;const o=(i&&live(i.id))||{};
   draft={old:o.ph?{ph:o.ph,pf:o.pf}:null,cur:o.ph?{ph:o.ph,pf:o.pf}:null};
   $('e-newf').hidden=!newMode;$('e-del').hidden=!(i&&i.isNew);$('e-del').textContent='Eliminar producto nuevo';
   $('e-name').textContent=i?i.desc:'Producto nuevo';$('e-code').textContent=i?i.code+(i.cat?' · '+i.cat:''):'';
   $('e-s').value=o.s!=null?o.s:0;$('e-pr').value=(o.p!=null?o.p:i?i.price:0).toFixed(2);$('e-pos').value=o.pos||'';
   ['n-desc','n-code','n-cat'].forEach(k=>$(k).value='');$('n-iva').selectedIndex=0;
+  $('e-bc').value=pendingBc&&i?pendingBc:(i?bcOf(i):'');if(pendingBc&&i){pendingBc=null;$('assign').hidden=true}
   setThumb(null);show();
   if(o.ph)photoUrl(o).then(u=>{if(cur===i&&draft.cur&&!draft.cur.blob)setThumb(u)});
 }
 function closeSheet(){$('scrim').classList.remove('on');$('sheet').classList.remove('on');cur=null}
-$('scrim').onclick=$('e-cancel').onclick=()=>{if(!busy)closeSheet()};
+$('scrim').onclick=$('e-cancel').onclick=()=>{if(!busy){fromScan=false;closeSheet()}};
 $('b-new').onclick=()=>openSheet(null);
 const bump=d=>{const v=(num($('e-s').value)||0)+d;$('e-s').value=Math.max(0,Math.round(v*100)/100)};
 $('e-m').onclick=()=>bump(-1);$('e-p').onclick=()=>bump(1);
@@ -410,6 +430,8 @@ $('e-phx').onclick=()=>{draft.cur=null;setThumb(null)};
 $('e-save').onclick=async()=>{
   if(busy)return;const s=num($('e-s').value),p=num($('e-pr').value);
   if(s==null||s<0)return toast('Stock inválido');if(p==null||p<0)return toast('Precio inválido');
+  const bc=$('e-bc').value.trim(),dup=bc&&findBc(bc).find(j=>j!==cur);
+  if(dup)return toast('Ese código ya lo tiene: '+dup.desc);
   let it=cur;
   if(newMode){
     const desc=$('n-desc').value.trim();if(!desc)return toast('Escribe el nombre del producto');
@@ -421,12 +443,14 @@ $('e-save').onclick=async()=>{
   }
   const v={s};if(Math.abs(p-it.price)>=0.005)v.p=Math.round(p*100)/100;
   const pos=$('e-pos').value.trim();if(pos)v.pos=pos;
+  if(bc&&bkey(bc)!==bkey(isBc(it.code)?it.code:''))v.bc=bc;
   const d=draft.cur;
   if(d&&d.blob){v.ph=it.id+'-'+Date.now();try{await phPut(v.ph,d.blob)}catch(_){toast('No se pudo guardar la foto');delete v.ph}}
   else if(d){v.ph=d.ph;if(d.pf)v.pf=d.pf}
   if(draft.old&&draft.old.pf&&(!v.ph||v.pf!==draft.old.pf)){const ds=(await kvGet('del'))||[];ds.push(draft.old.pf);await kvSet('del',ds)}
   put(it.id,v);closeSheet();
   if(newMode){apply();toast('Producto agregado')}else{refreshRow(it.id);toast('Guardado')}
+  if(fromScan){fromScan=false;openScan('search')}
 };
 $('e-del').onclick=async()=>{
   const b=$('e-del');if(!cur||busy)return;
@@ -458,8 +482,8 @@ $('b-sync').onclick=()=>sync();
 /* ---------- Excel ---------- */
 $('b-xlsx').onclick=async()=>{
   if(!window.XLSX)return toast('Falta cargar la librería Excel. Conéctate a internet');
-  const head=['Código','Descripción','Precio final (con IVA)','IVA','Categoría','Stock','Stock mínimo','Costo','ID AppConto','Posición','Contado'];
-  const rows=items.map(i=>{const o=live(i.id),c=counted(i);return[i.code,i.desc,o&&o.p!=null?o.p:i.price,i.iva,i.cat,c?o.s:0,i.min,i.cost,i.xid,o&&o.pos||'',c?'Sí':'No']});
+  const head=['Código','Descripción','Precio final (con IVA)','IVA','Categoría','Stock','Stock mínimo','Costo','ID AppConto','Posición','Contado','Código de barras'];
+  const rows=items.map(i=>{const o=live(i.id),c=counted(i);return[i.code,i.desc,o&&o.p!=null?o.p:i.price,i.iva,i.cat,c?o.s:0,i.min,i.cost,i.xid,o&&o.pos||'',c?'Sí':'No',bcOf(i)]});
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([head,...rows]),'productos');
   const blob=new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const name='Inventario_Victor_Jr_contado.xlsx',a=document.createElement('a');
@@ -470,6 +494,47 @@ $('b-xlsx').onclick=async()=>{
 };
 
 let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2600)}
+
+/* ---------- lector de código de barras (cámara) ---------- */
+const ZXURL='https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+let stream=null,timer=null,scanMode=null,fromScan=false,pendingBc=null,zxp=null;
+function setFilt(f){filt=f;document.querySelectorAll('[data-f]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.f===f))}
+const loadZX=()=>zxp||(zxp=new Promise((res,rej)=>{if(window.ZXing)return res();const s=document.createElement('script');s.src=ZXURL;s.onload=res;s.onerror=()=>{zxp=null;rej()};document.head.appendChild(s)}));
+async function openScan(mode){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return toast('Este navegador no permite usar la cámara');
+  scanMode=mode;$('scan').hidden=false;
+  try{await loadZX()}catch(_){closeScan();return toast('No se pudo cargar el lector. Conéctate a internet una vez')}
+  if(!scanMode)return;
+  const Z=ZXing,h=new Map(),F=Z.BarcodeFormat;
+  h.set(Z.DecodeHintType.POSSIBLE_FORMATS,[F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.CODE_128,F.CODE_39,F.ITF]);
+  h.set(Z.DecodeHintType.TRY_HARDER,true);
+  const mr=new Z.MultiFormatReader();mr.setHints(h);
+  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false})}
+  catch(_){closeScan();return toast('No se pudo abrir la cámara. Revisa el permiso en Ajustes')}
+  if(!scanMode){stream.getTracks().forEach(t=>t.stop());stream=null;return}
+  const v=$('sc-v'),c=document.createElement('canvas'),x=c.getContext('2d',{willReadFrequently:true});
+  v.srcObject=stream;v.play().catch(()=>{});
+  // se decodifica cuadro a cuadro; el decodificador continuo de la librería no leía el video
+  timer=setInterval(()=>{
+    if(v.readyState<2||!v.videoWidth)return;c.width=v.videoWidth;c.height=v.videoHeight;x.drawImage(v,0,0);
+    try{const r=mr.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(c))));if(scanMode)onScan(r.getText())}catch(_){}
+  },150);
+}
+function closeScan(){scanMode=null;$('scan').hidden=true;clearInterval(timer);timer=null;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}$('sc-v').srcObject=null}
+function onScan(code){
+  const m=scanMode;closeScan();
+  if(m==='field'){$('e-bc').value=code;return toast('Código leído: '+code)}
+  const f=findBc(code);
+  if(f.length===1)return openSheet(f[0],true);
+  tab('inv');
+  if(f.length>1){$('q').value=code;setFilt('all');apply();return toast(f.length+' productos con ese código')}
+  pendingBc=code;$('assign-t').textContent='Código '+code+' sin producto. Busca el producto y tócalo para asignárselo.';$('assign').hidden=false;
+}
+$('b-scan').onclick=e=>{e.preventDefault();openScan('search')};
+$('e-bcs').onclick=()=>openScan('field');
+$('sc-x').onclick=()=>{fromScan=false;closeScan()};
+$('assign-x').onclick=()=>{pendingBc=null;$('assign').hidden=true};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)closeScan()});
 
 /* ---------- arranque ---------- */
 (async()=>{
