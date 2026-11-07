@@ -148,8 +148,9 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
   </div>
   <div class="card glass">
     <h2>Base de datos nueva</h2>
-    <p>Excel con las mismas columnas del original, más Posición y Contado. Lo que no se contó sale con stock 0. También se copia a tu Drive.</p>
-    <button class="bigbtn" id="b-xlsx">Descargar Excel</button>
+    <p>Elige el formato. Todos llevan las columnas del original, más Posición, Contado y Código de barras. Lo que no se contó sale con stock 0. También se copia a la carpeta de Drive, sin tocar el Excel original.</p>
+    <select class="fld" id="x-fmt" style="margin-bottom:10px"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV (.csv)</option><option value="json">JSON (.json)</option><option value="sql">SQL (.sql)</option></select>
+    <button class="bigbtn" id="b-xlsx">Descargar</button>
   </div>
   <div class="card glass">
     <h2>Reiniciar conteo</h2>
@@ -213,7 +214,7 @@ const money=n=>'$'+(+n).toFixed(2);
 const num=s=>{const v=parseFloat(String(s).replace(',','.'));return isFinite(v)?v:null};
 const LS=k=>{try{return localStorage.getItem(k)}catch(_){return null}};
 const LSs=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(_){}};
-const FOLDER='Inventario Victor Jr', SCOPE='https://www.googleapis.com/auth/drive.file';
+const FOLDER_ID='11p-w_u_Ux4aYX1vNdYzXXUnlwYFuBeT9', FOLDER_NAME='Claude App de Inventario', SRC_NAME='Inventario_Victor_Jr_LISTO_PARA_IMPORTAR.xlsx', SCOPE='https://www.googleapis.com/auth/drive';
 
 /* ---------- almacenamiento local (IndexedDB): fuente de verdad en el teléfono ---------- */
 let idb;
@@ -250,6 +251,7 @@ let tc=null;
 const tok=()=>{try{const t=JSON.parse(LS('tk'));return t&&t.exp>Date.now()+60000?t.a:null}catch(_){return null}};
 function initGoogle(){
   const cid=LS('cid');if(!cid||tc)return;
+  if(LS('scope')!==SCOPE){LSs('tk',null);LSs('everConnected',null);LSs('scope',SCOPE)}
   if(!window.google||!google.accounts){return setTimeout(initGoogle,400)}
   tc=google.accounts.oauth2.initTokenClient({client_id:cid,scope:SCOPE,callback:()=>{},error_callback:()=>{}});
   if(LS('everConnected'))connect(true).then(ok=>ok&&sync());
@@ -279,15 +281,13 @@ async function updateFile(id,blob,mime){return (await g(`${UP}/${id}?uploadType=
 const getJson=async id=>(await g(`${API}/${id}?alt=media`)).json();
 const jblob=o=>new Blob([JSON.stringify(o)],{type:'application/json'});
 
-let syncing=false;
+let syncing=false,folderOk=false;
 async function sync(){
   if(syncing||!idb||!tok())return setStatus(tok()?'ok':'off');
   syncing=true;setStatus('sync');
   try{
-    let folder=await kvGet('folder');
-    if(!folder){const f=await list(`name='${FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-      folder=f[0]?f[0].id:(await (await g(API+'?fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:FOLDER,mimeType:'application/vnd.google-apps.folder'})})).json()).id;
-      await kvSet('folder',folder)}
+    if(!folderOk){const r=await g(`${API}/${FOLDER_ID}?fields=id`);if(r.status===404)throw{code:'nofolder'};folderOk=true}
+    const folder=FOLDER_ID;
     const fl=await list(`'${folder}' in parents and trashed=false and (name='catalog.json' or name='ov.json')`);
     const fc=fl.find(f=>f.name==='catalog.json'),fo=fl.find(f=>f.name==='ov.json');
     /* catálogo */
@@ -313,7 +313,7 @@ async function sync(){
     if(dels.length)await kvSet('del',[]);
     if(push)await (async()=>{const m=Object.fromEntries(ov);fo?await updateFile(fo.id,jblob(m),'application/json'):await createFile('ov.json',folder,jblob(m),'application/json')})();
     await kvSet('dirty',0);setStatus('ok');renderAll();
-  }catch(e){setStatus(e&&e.code==='auth'?'off':'err')}
+  }catch(e){setStatus(e&&e.code==='auth'?'off':'err');if(e&&e.code==='nofolder')toast('No tengo acceso a la carpeta de Drive. Pide que la compartan con tu correo')}
   syncing=false;
 }
 const STXT={off:'Conectar con Google',sync:'Sincronizando…',ok:'Guardado en Drive',pend:'Por subir a Drive',err:'Error al sincronizar'};
@@ -365,18 +365,19 @@ function gate(){
   $('count').textContent='';
   const cid=LS('cid');let h;
   if(!cid)h=`<div class="card" style="margin:0"><h2>Conectar tu Drive</h2>
-    <p>Esta app guarda todo en una carpeta de tu Google Drive. Necesita un “Client ID” gratuito que se crea una sola vez.</p>
+    <p>Esta app guarda todo en la carpeta “Claude App de Inventario” de Google Drive. Necesita un “Client ID” gratuito que se crea una sola vez.</p>
     <ol style="margin:0 0 14px;padding-left:20px;font-size:14px;line-height:1.5;color:var(--muted)">
     <li>Entra a console.cloud.google.com y crea un proyecto.</li>
     <li>En “APIs y servicios”, activa <b>Google Drive API</b>.</li>
-    <li>En “Pantalla de consentimiento”, elige Externo, pon un nombre y tu correo, y publícala.</li>
+    <li>En “Pantalla de consentimiento”, elige Externo, pon un nombre y tu correo, y <b>déjala en modo Prueba</b>. En “Usuarios de prueba” agrega los correos de quienes usarán la app. En “Acceso a los datos” agrega el permiso <b>auth/drive</b>.</li>
     <li>En “Credenciales”, crea un <b>ID de cliente OAuth</b> tipo Aplicación web. En “Orígenes autorizados” pon <b>${esc(location.origin)}</b></li>
     <li>Copia el ID y pégalo aquí.</li></ol>
     <input class="fld" id="g-cid" placeholder="123456-abc.apps.googleusercontent.com" autocapitalize="off" autocomplete="off">
     <button class="bigbtn" id="g-save" style="margin-top:12px">Guardar</button></div>`;
-  else if(!tok()&&!LS('everConnected'))h=`<div class="card" style="margin:0"><h2>Conectar tu Drive</h2><p>Inicia sesión con tu cuenta de Google. La app solo ve su propia carpeta “${FOLDER}”.</p><button class="bigbtn" id="g-conn">Conectar con Google</button></div>`;
-  else h=`<div class="card" style="margin:0"><h2>Cargar el inventario</h2><p id="g-msg">Si ya subiste el catálogo desde otro dispositivo, toca Sincronizar. Si no, elige tu Excel de productos.</p>
-    <label class="bigbtn" style="cursor:pointer">Elegir Excel<input id="g-xls" type="file" accept=".xlsx" hidden></label>
+  else if(!tok()&&!LS('everConnected'))h=`<div class="card" style="margin:0"><h2>Conectar tu Drive</h2><p>Inicia sesión con tu cuenta de Google. Usa una cuenta con acceso a la carpeta “${FOLDER_NAME}”.</p><button class="bigbtn" id="g-conn">Conectar con Google</button></div>`;
+  else h=`<div class="card" style="margin:0"><h2>Cargar el inventario</h2><p id="g-msg">Si el catálogo ya está en Drive, toca Sincronizar. Si no, cárgalo desde el Excel de la carpeta o elige uno del teléfono.</p>
+    <button class="bigbtn" id="g-drv">Cargar desde la carpeta de Drive</button>
+    <label class="bigbtn sec" style="cursor:pointer">Elegir Excel del teléfono<input id="g-xls" type="file" accept=".xlsx" hidden></label>
     <button class="bigbtn sec" id="g-sync">Sincronizar</button></div>`;
   $('list').innerHTML=h;
 }
@@ -385,19 +386,26 @@ $('list').addEventListener('click',async e=>{
   if(t.id==='g-save'){const v=$('g-cid').value.trim();if(!/\.apps\.googleusercontent\.com$/.test(v))return toast('El ID debe terminar en .apps.googleusercontent.com');LSs('cid',v);initGoogle();gate()}
   else if(t.id==='g-conn'){if(await connect(false)){sync()}else toast('No se pudo conectar con Google');gate()}
   else if(t.id==='g-sync'){sync()}
+  else if(t.id==='g-drv'){loadFromDrive()}
   else{const b=t.closest('.item');if(b)openSheet(byId.get(b.dataset.id))}
 });
-$('list').addEventListener('change',async e=>{
-  if(e.target.id!=='g-xls')return;const f=e.target.files[0];if(!f)return;
+async function importXlsx(buf){
   try{
-    const wb=XLSX.read(await f.arrayBuffer()),ws=wb.Sheets.productos||wb.Sheets[wb.SheetNames[0]];
+    const wb=XLSX.read(buf),ws=wb.Sheets.productos||wb.Sheets[wb.SheetNames[0]];
     const rows=XLSX.utils.sheet_to_json(ws,{header:1}),h=rows[0].map(norm),ix=n=>h.findIndex(x=>x.startsWith(n));
     const c=['codigo','descripcion','precio','iva','categoria','stock minimo','costo','id appconto'].map(ix);
     if(c[0]<0||c[1]<0||c[2]<0)throw 0;
     catalog=rows.slice(1).filter(r=>r[c[0]]!=null&&r[c[1]]).map(r=>[String(r[c[0]]),r[c[1]],r[c[2]],c[3]<0?'':r[c[3]],c[4]<0?'':r[c[4]],c[5]<0?null:r[c[5]],c[6]<0?null:r[c[6]],c[7]<0?'':r[c[7]]]);
     await kvSet('catalog',catalog);await kvSet('catDirty',1);loadItems();apply();toast(catalog.length+' productos cargados');sync();
   }catch(_){toast('No pude leer ese Excel')}
-});
+}
+$('list').addEventListener('change',async e=>{if(e.target.id!=='g-xls')return;const f=e.target.files[0];if(f)importXlsx(await f.arrayBuffer())});
+async function loadFromDrive(){
+  if(!tok())return toast('Conecta Google primero');
+  try{const f=await list(`'${FOLDER_ID}' in parents and trashed=false and name='${SRC_NAME}'`);
+    if(!f[0])return toast('No encontré '+SRC_NAME+' en la carpeta');
+    importXlsx(await (await g(`${API}/${f[0].id}?alt=media`)).arrayBuffer())}catch(_){toast('No pude leer la carpeta de Drive')}
+}
 
 /* ---------- hoja de edición / producto nuevo ---------- */
 function setThumb(src){const t=$('e-th');t.style.backgroundImage=src?`url('${src}')`:'';t.firstElementChild.style.display=src?'none':'';$('e-phx').hidden=!src}
@@ -479,18 +487,29 @@ $('b-reset').onclick=()=>{
 $('b-conn').onclick=async()=>{if(await connect(false))sync();else toast('No se pudo conectar con Google')};
 $('b-sync').onclick=()=>sync();
 
-/* ---------- Excel ---------- */
+/* ---------- exportar (varios formatos) ---------- */
+const HEAD=['Código','Descripción','Precio final (con IVA)','IVA','Categoría','Stock','Stock mínimo','Costo','ID AppConto','Posición','Contado','Código de barras'];
+const KEYS=['codigo','descripcion','precio_final_con_iva','iva','categoria','stock','stock_minimo','costo','id_appconto','posicion','contado','codigo_barras'];
+const exRows=()=>items.map(i=>{const o=live(i.id),c=counted(i);return[i.code,i.desc,o&&o.p!=null?o.p:i.price,i.iva,i.cat,c?o.s:0,i.min,i.cost,i.xid,o&&o.pos||'',c?'Sí':'No',bcOf(i)]});
+const csvCell=v=>{if(v==null)return'';const t=String(v);return /[",\r\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t};
+const sqlVal=(v,k)=>{if(v===''||v==null)return'NULL';if(k==='contado')return v==='Sí'?1:0;return typeof v==='number'?String(v):"'"+String(v).replace(/'/g,"''")+"'"};
+const FMT={
+  xlsx:{ext:'xlsx',mime:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',make:r=>{const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([HEAD,...r]),'productos');return XLSX.write(wb,{type:'array',bookType:'xlsx',compression:true})}},
+  csv:{ext:'csv',mime:'text/csv',make:r=>'﻿'+[HEAD,...r].map(x=>x.map(csvCell).join(',')).join('\r\n')+'\r\n'},
+  json:{ext:'json',mime:'application/json',make:r=>JSON.stringify(r.map(x=>Object.fromEntries(KEYS.map((k,n)=>[k,k==='contado'?x[n]==='Sí':(x[n]===''?null:x[n])]))),null,1)},
+  sql:{ext:'sql',mime:'application/sql',make:r=>{
+    let o='-- Inventario Victor Jr ('+new Date().toISOString().slice(0,10)+')\nCREATE TABLE IF NOT EXISTS productos (\n codigo TEXT, descripcion TEXT, precio_final_con_iva REAL, iva TEXT, categoria TEXT, stock REAL, stock_minimo REAL, costo REAL, id_appconto INTEGER, posicion TEXT, contado INTEGER, codigo_barras TEXT\n);\nBEGIN;\n';
+    for(let k=0;k<r.length;k+=500)o+='INSERT INTO productos ('+KEYS.join(',')+') VALUES\n'+r.slice(k,k+500).map(x=>'('+x.map((v,n)=>sqlVal(v,KEYS[n])).join(',')+')').join(',\n')+';\n';
+    return o+'COMMIT;\n'}}
+};
 $('b-xlsx').onclick=async()=>{
-  if(!window.XLSX)return toast('Falta cargar la librería Excel. Conéctate a internet');
-  const head=['Código','Descripción','Precio final (con IVA)','IVA','Categoría','Stock','Stock mínimo','Costo','ID AppConto','Posición','Contado','Código de barras'];
-  const rows=items.map(i=>{const o=live(i.id),c=counted(i);return[i.code,i.desc,o&&o.p!=null?o.p:i.price,i.iva,i.cat,c?o.s:0,i.min,i.cost,i.xid,o&&o.pos||'',c?'Sí':'No',bcOf(i)]});
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([head,...rows]),'productos');
-  const blob=new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const name='Inventario_Victor_Jr_contado.xlsx',a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
-  if(tok()){try{const folder=await kvGet('folder');if(folder){const ex=await list(`'${folder}' in parents and trashed=false and name='${name}'`);
-    ex[0]?await updateFile(ex[0].id,blob,blob.type):await createFile(name,folder,blob,blob.type);toast('Excel descargado y copiado a tu Drive')}}catch(_){toast('Excel descargado')}}
-  else toast('Excel descargado');
+  const f=FMT[$('x-fmt').value];
+  if(f===FMT.xlsx&&!window.XLSX)return toast('Falta cargar la librería Excel. Conéctate a internet');
+  const blob=new Blob([f.make(exRows())],{type:f.mime}),name='Inventario_Victor_Jr_contado.'+f.ext;
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
+  if(tok()){try{const ex=await list(`'${FOLDER_ID}' in parents and trashed=false and name='${name}'`);
+    ex[0]?await updateFile(ex[0].id,blob,f.mime):await createFile(name,FOLDER_ID,blob,f.mime);toast('Descargado y copiado a tu Drive')}catch(_){toast('Descargado')}}
+  else toast('Descargado');
 };
 
 let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2600)}
