@@ -23,6 +23,7 @@
   --glass:rgba(40,46,64,.50); --glass-edge:rgba(255,255,255,.20); --glass-shadow:rgba(0,0,0,.5);
   --row:rgba(34,40,58,.55); --hair:rgba(255,255,255,.10); --field:rgba(150,160,190,.18);
   --blob1:#1f4fa8; --blob2:#7a2a6a; --blob3:#1d6b57; color-scheme:dark}
+[hidden]{display:none!important}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{min-height:100%}
 body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;
@@ -109,6 +110,11 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
 #assign{display:flex;align-items:center;gap:10px;margin:8px 0 2px;padding:10px 12px;border-radius:16px;background:color-mix(in srgb,var(--warn) 22%,transparent);font-size:13px;font-weight:600}
 #assign[hidden]{display:none}
 .sbtn{flex:none;border:0;background:var(--accent);width:36px;height:36px;border-radius:50%;margin-right:-8px;color:#fff;display:grid;place-items:center}
+.dl{margin:18px 6px 8px;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.lr{display:flex;gap:12px;padding:11px 14px;border-bottom:1px solid var(--hair)}
+.lr:last-child{border-bottom:0}
+.lt{flex:none;width:44px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;padding-top:2px}
+.det{font-size:14px;margin-top:2px;overflow-wrap:anywhere}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -138,6 +144,13 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
   <div id="more" style="height:1px"></div>
 </section>
 
+<section class="page" id="p-log" hidden>
+  <div class="top" style="padding-top:18px"><h1>Registro</h1><span class="count" id="log-n"></span></div>
+  <p class="count" style="margin:0 6px 4px">Quién cambió qué en los últimos 4 días. Se comparte entre todos los teléfonos.</p>
+  <div id="log-list"></div>
+  <button class="bigbtn sec" id="log-more" hidden style="margin-top:14px">Ver más</button>
+</section>
+
 <section class="page" id="p-exp" hidden>
   <div class="top" style="padding-top:18px"><h1>Resumen</h1></div>
   <div class="stats">
@@ -158,11 +171,12 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
     <button class="bigbtn sec" id="b-reset" style="color:#e5484d">Reiniciar conteo</button>
   </div>
   <div class="card glass"><h2>Google Drive</h2><p id="conn-msg">Conectar con Google</p>
-    <button class="bigbtn sec" id="b-conn">Conectar con Google</button><button class="bigbtn sec" id="b-sync">Sincronizar ahora</button><button class="bigbtn sec" id="b-reload">Actualizar catálogo desde Drive</button><button class="bigbtn sec" id="b-chg">Cambiar Client ID</button><p class="count" style="margin:12px 0 0;text-align:center">Versión 9</p></div>
+    <button class="bigbtn sec" id="b-conn">Conectar con Google</button><button class="bigbtn sec" id="b-sync">Sincronizar ahora</button><button class="bigbtn sec" id="b-reload">Actualizar catálogo desde Drive</button><button class="bigbtn sec" id="b-chg">Cambiar Client ID</button><p class="count" style="margin:12px 0 0;text-align:center">Versión 10</p></div>
   </section>
 
 <nav><div class="bar glass">
   <button id="t-inv" aria-current="page"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Inventario</button>
+  <button id="t-log"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Registro</button>
   <button id="t-exp"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Resumen</button>
 </div></nav>
 
@@ -220,8 +234,8 @@ const FOLDER_ID='11p-w_u_Ux4aYX1vNdYzXXUnlwYFuBeT9', FOLDER_NAME='Claude App de 
 
 /* ---------- almacenamiento local (IndexedDB): fuente de verdad en el teléfono ---------- */
 let idb;
-const idbOpen=()=>new Promise((res,rej)=>{const r=indexedDB.open('victorjr-drive',1);
-  r.onupgradeneeded=()=>['kv','ov','ph'].forEach(n=>r.result.createObjectStore(n));r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const idbOpen=()=>new Promise((res,rej)=>{const r=indexedDB.open('victorjr-drive',2);
+  r.onupgradeneeded=()=>['kv','ov','ph','log'].forEach(n=>r.result.objectStoreNames.contains(n)||r.result.createObjectStore(n));r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
 const req=r=>new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
 const st=(n,m)=>idb.transaction(n,m).objectStore(n);
 const kvGet=k=>req(st('kv').get(k)), kvSet=(k,v)=>req(st('kv','readwrite').put(v,k));
@@ -232,6 +246,7 @@ const ovAll=()=>new Promise(res=>{const o=[];const c=st('ov').openCursor();c.ons
 /* ---------- modelo ---------- */
 // fila de catálogo: [codigo, descripcion, precio, iva, categoria, stockMin, costo, idAppConto, idNuevo]
 let catalog=[], items=[], byId=new Map(), view=[], shown=0, filt='all', cat='', cur=null, draft=null, newMode=false, busy=false;
+const logs=new Map(),dirtyDays=new Set(),LOGDAYS=4;let meName=LS('meName')||'';
 const ov=new Map();      // id -> {t, s?, p?, pos?, ph?, pf?, del?}   s presente = contado; del = borrado
 const mk=r=>({row:r,code:String(r[0]),desc:r[1],price:+r[2]||0,iva:r[3],cat:r[4]||'',min:r[5],cost:r[6],xid:r[8]?'':r[7],isNew:!!r[8],id:r[8]||String(r[7]),st:+r[9]||0,n:norm(r[0]+' '+r[1])});
 function loadItems(){items=catalog.map(mk);byId=new Map(items.map(i=>[i.id,i]));items.forEach(i=>{i.pn=pnOf(live(i.id))})}
@@ -314,6 +329,7 @@ async function sync(){
     for(const f of dels)await g(`${API}/${f}`,{method:'DELETE'}).catch(()=>{});
     if(dels.length)await kvSet('del',[]);
     if(push)await (async()=>{const m=Object.fromEntries(ov);fo?await updateFile(fo.id,jblob(m),'application/json'):await createFile('ov.json',folder,jblob(m),'application/json')})();
+    try{await syncLog(folder)}catch(e){if(e&&e.code==='auth')throw e}
     await kvSet('dirty',0);setStatus('ok');renderAll();
   }catch(e){setStatus(e&&e.code==='auth'?'off':'err');if(e&&e.code==='nofolder')toast('No tengo acceso a la carpeta de Drive. Pide que la compartan con tu correo')}
   syncing=false;
@@ -323,6 +339,60 @@ async function sync(){
 const STXT={off:'Conectar con Google',sync:'Sincronizando…',ok:'Guardado en Drive',pend:'Por subir a Drive',err:'Error al sincronizar'};
 function setStatus(s){const p=$('pill');p.textContent=(s==='ok'?'☁︎ ':s==='off'||s==='err'?'⚠︎ ':'')+STXT[s];p.dataset.s=s;if($('conn-msg'))$('conn-msg').textContent=STXT[s]}
 $('pill').onclick=async()=>{const s=$('pill').dataset.s;if(s==='off'||s==='err'){if(await connect(false))sync();else toast('No se pudo conectar con Google')}else sync()};
+
+/* ---------- registro de ediciones (se comparte por Drive, un archivo por día) ---------- */
+const dayOf=t=>new Date(t).toLocaleDateString('en-CA');
+const logPut=(k,e)=>{try{req(st('log','readwrite').put(e,k)).catch(()=>{})}catch(_){}};
+function logAdd(id,a,d,n){
+  const t=Date.now(),e={t,u:meName,id,a,d,n};logs.set(t+'|'+id,e);logPut(t+'|'+id,e);
+  dirtyDays.add(dayOf(t));kvSet('logdirty',[...dirtyDays]).catch(()=>{});markDirty();
+}
+function logEdit(it,old,v,isNew){
+  const was=!!old&&old.s!=null,c=[];
+  if(isNew)c.push('Producto nuevo · stock '+v.s);
+  else{
+    if(!was)c.push('Contó '+v.s+(v.s!==it.st?' (antes '+it.st+')':''));else if(v.s!==old.s)c.push('Stock '+old.s+' → '+v.s);
+    const op=old&&old.p!=null?old.p:it.price,np=v.p!=null?v.p:it.price;if(Math.abs(op-np)>=0.005)c.push('Precio '+money(op)+' → '+money(np));
+    if(((old&&old.pos)||'')!==(v.pos||''))c.push('Posición '+((old&&old.pos)||'—')+' → '+(v.pos||'—'));
+    if(((old&&old.bc)||'')!==(v.bc||''))c.push('Código de barras '+(v.bc||'quitado'));
+    if(((old&&old.ph)||'')!==(v.ph||''))c.push(v.ph?'Foto nueva':'Foto quitada');
+  }
+  if(c.length)logAdd(it.id,isNew?'new':'edit',c.join(' · '),it.desc);
+}
+async function syncLog(folder){
+  if(!meName){try{const j=await (await g('https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress)')).json();
+    meName=(j.user&&(j.user.displayName||j.user.emailAddress))||'';if(meName)LSs('meName',meName)}catch(e){if(e&&e.code==='auth')throw e}}
+  if(meName)for(const [k,e] of logs)if(!e.u){e.u=meName;logPut(k,e);dirtyDays.add(dayOf(e.t))}
+  const since=Date.now()-LOGDAYS*864e5,first=dayOf(since);
+  const files=(await list(`'${folder}' in parents and trashed=false and name contains 'log-'`)).filter(f=>/^log-\d{4}-\d\d-\d\d\.json$/.test(f.name));
+  const byDay=Object.fromEntries(files.map(f=>[f.name.slice(4,14),f]));
+  for(const day of new Set([...Object.keys(byDay).filter(d=>d>=first),...dirtyDays])){
+    const f=byDay[day];
+    if(f&&(f.modifiedTime>((await kvGet('lm-'+day))||'')||dirtyDays.has(day)))
+      for(const e of await getJson(f.id)){const k=e.t+'|'+e.id;if(!logs.has(k)){logs.set(k,e);logPut(k,e)}}
+    if(dirtyDays.has(day)){
+      const arr=[...logs.values()].filter(e=>dayOf(e.t)===day).sort((a,b)=>a.t-b.t),
+        r=f?await updateFile(f.id,jblob(arr),'application/json'):await createFile(`log-${day}.json`,folder,jblob(arr),'application/json');
+      await kvSet('lm-'+day,r.modifiedTime);dirtyDays.delete(day);
+    }else if(f)await kvSet('lm-'+day,f.modifiedTime);
+  }
+  kvSet('logdirty',[...dirtyDays]).catch(()=>{});
+  for(const [k,e] of logs)if(e.t<since){logs.delete(k);req(st('log','readwrite').delete(k)).catch(()=>{})}
+}
+let logLimit=100;
+const AL={edit:'Editó',new:'Agregó',del:'Eliminó',reset:'Reinició',catalog:'Actualizó'};
+function renderLog(){
+  const since=Date.now()-LOGDAYS*864e5,all=[...logs.values()].filter(e=>e.t>=since).sort((a,b)=>b.t-a.t),shownL=all.slice(0,logLimit);
+  $('log-n').textContent=all.length?all.length.toLocaleString('es')+' cambios':'';
+  const today=dayOf(Date.now()),yest=dayOf(Date.now()-864e5);let h='',cur='';
+  for(const e of shownL){const d=dayOf(e.t);
+    if(d!==cur){if(cur)h+='</div>';cur=d;h+=`<div class="dl">${d===today?'Hoy':d===yest?'Ayer':esc(new Date(e.t).toLocaleDateString('es',{weekday:'long',day:'numeric',month:'short'}))}</div><div class="list">`}
+    h+=`<div class="lr"><div class="lt">${new Date(e.t).toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})}</div><div class="mid"><div class="name">${esc(e.n||'')}</div><div class="det">${esc(e.d||'')}</div><div class="sub">${esc(AL[e.a]||'Editó')} · ${esc(e.u||'Sin nombre')}</div></div></div>`}
+  if(cur)h+='</div>';
+  $('log-list').innerHTML=h||'<div class="empty">Todavía no hay cambios registrados.</div>';
+  $('log-more').hidden=all.length<=logLimit;
+}
+$('log-more').onclick=()=>{logLimit+=100;renderLog()};
 
 /* ---------- fotos ---------- */
 const urls=new Map();
@@ -362,7 +432,7 @@ let tm;$('q').addEventListener('input',()=>{clearTimeout(tm);tm=setTimeout(apply
 $('chips').addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;setFilt(b.dataset.f);apply()});
 $('cat').addEventListener('change',e=>{cat=e.target.value;apply()});
 function refreshRow(id){const el=$('list').querySelector(`[data-id="${CSS.escape(id)}"]`);if(el&&filt==='all'){el.outerHTML=rowHtml(byId.get(id));hydrate()}else apply()}
-const renderAll=()=>{apply();if(!$('p-exp').hidden)stats()};
+const renderAll=()=>{apply();if(!$('p-exp').hidden)stats();if(!$('p-log').hidden)renderLog()};
 
 function changeCid(){LSs('cid','');LSs('tk',null);LSs('everConnected',null);tc=null;setStatus('off');tab('inv');gate()}
 /* ---------- pantalla inicial: Client ID, conectar, importar Excel ---------- */
@@ -404,7 +474,7 @@ async function importXlsx(buf){
     if(c[0]<0||c[1]<0||c[2]<0)throw 0;
     const keep=catalog.filter(r=>r[8]);
     catalog=rows.slice(1).filter(r=>r[c[0]]!=null&&r[c[1]]).map(r=>[String(r[c[0]]),r[c[1]],r[c[2]],c[3]<0?'':r[c[3]],c[4]<0?'':r[c[4]],c[5]<0?null:r[c[5]],c[6]<0?null:r[c[6]],c[7]<0?'':r[c[7]],'',si<0?0:(+r[si]||0)]);
-    catalog=catalog.concat(keep);await kvSet('catalog',catalog);await kvSet('catDirty',1);loadItems();renderAll();toast('Catálogo actualizado: '+catalog.length+' productos');sync();
+    catalog=catalog.concat(keep);await kvSet('catalog',catalog);await kvSet('catDirty',1);loadItems();renderAll();toast('Catálogo actualizado: '+catalog.length+' productos');logAdd('*','catalog','Catálogo actualizado: '+catalog.length+' productos','Catálogo');sync();
   }catch(_){toast('No pude leer ese Excel')}
 }
 $('list').addEventListener('change',async e=>{if(e.target.id!=='g-xls')return;const f=e.target.files[0];if(f)importXlsx(await f.arrayBuffer())});
@@ -464,7 +534,7 @@ $('e-save').onclick=async()=>{
   if(d&&d.blob){v.ph=it.id+'-'+Date.now();try{await phPut(v.ph,d.blob)}catch(_){toast('No se pudo guardar la foto');delete v.ph}}
   else if(d){v.ph=d.ph;if(d.pf)v.pf=d.pf}
   if(draft.old&&draft.old.pf&&(!v.ph||v.pf!==draft.old.pf)){const ds=(await kvGet('del'))||[];ds.push(draft.old.pf);await kvSet('del',ds)}
-  put(it.id,v);closeSheet();
+  const old=live(it.id);put(it.id,v);logEdit(it,old,v,newMode);closeSheet();
   if(newMode){apply();toast('Producto agregado')}else{refreshRow(it.id);toast('Guardado')}
   if(fromScan){fromScan=false;openScan('search')}
 };
@@ -474,14 +544,13 @@ $('e-del').onclick=async()=>{
   const i=cur,o=live(i.id);b.dataset.arm='';
   if(o&&o.pf){const ds=(await kvGet('del'))||[];ds.push(o.pf);await kvSet('del',ds)}
   catalog=catalog.filter(r=>r!==i.row);await kvSet('catalog',catalog);await kvSet('catDirty',1);
-  unput(i.id);loadItems();closeSheet();apply();toast('Eliminado');
+  logAdd(i.id,'del','Producto nuevo eliminado',i.desc);unput(i.id);loadItems();closeSheet();apply();toast('Eliminado');
 };
 
 /* ---------- pestañas, resumen, reinicio ---------- */
-function tab(n){$('p-inv').hidden=n!=='inv';$('p-exp').hidden=n!=='exp';
-  $('t-inv').toggleAttribute('aria-current',n==='inv');$('t-exp').toggleAttribute('aria-current',n==='exp');
-  if(n==='exp')stats();scrollTo(0,0)}
-$('t-inv').onclick=()=>tab('inv');$('t-exp').onclick=()=>tab('exp');
+function tab(n){['inv','log','exp'].forEach(k=>{$('p-'+k).hidden=k!==n;$('t-'+k).toggleAttribute('aria-current',k===n)});
+  if(n==='exp')stats();if(n==='log')renderLog();scrollTo(0,0)}
+$('t-inv').onclick=()=>tab('inv');$('t-log').onclick=()=>tab('log');$('t-exp').onclick=()=>tab('exp');
 function stats(){let v=0,pc=0,c=0;ov.forEach((o,id)=>{const i=byId.get(id);if(!i||o.del)return;if(o.p!=null)pc++;if(o.s!=null){c++;v+=o.s*(o.p!=null?o.p:i.price)}});
   $('s-done').textContent=c.toLocaleString('es');$('s-left').textContent=(items.length-c).toLocaleString('es');
   $('s-price').textContent=pc;$('s-val').textContent=money(v)}
@@ -489,6 +558,7 @@ $('b-reset').onclick=()=>{
   const b=$('b-reset');
   if(b.dataset.arm!=='1'){b.dataset.arm='1';b.textContent='Toca otra vez para poner todo en 0';setTimeout(()=>{b.dataset.arm='';b.textContent='Reiniciar conteo'},4000);return}
   b.dataset.arm='';b.textContent='Reiniciar conteo';
+  const nc=[...ov].filter(([,o])=>!o.del&&o.s!=null).length;if(nc)logAdd('*','reset','Conteo reiniciado: '+nc+' productos','Todos los productos');
   [...ov].forEach(([id,o])=>{if(o.del||o.s==null)return;const {s,t,...rest}=o;(rest.p!=null||rest.pos||rest.ph)?put(id,rest):unput(id)});
   apply();stats();toast('Conteo reiniciado');
 };
@@ -571,6 +641,8 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)closeScan()
   try{idb=await idbOpen();
     catalog=(await kvGet('catalog'))||[];
     for(const [id,v] of await ovAll())ov.set(id,v);
+    await new Promise(res=>{const c=st('log').openCursor();c.onsuccess=()=>{const k=c.result;if(k){logs.set(k.key,k.value);k.continue()}else res()};c.onerror=()=>res()});
+    ((await kvGet('logdirty'))||[]).forEach(d=>dirtyDays.add(d));
     navigator.storage&&navigator.storage.persist&&navigator.storage.persist();
   }catch(_){toast('Este navegador no permite guardar en el teléfono')}
   loadItems();apply();initGoogle();
