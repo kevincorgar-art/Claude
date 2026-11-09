@@ -158,7 +158,7 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
     <button class="bigbtn sec" id="b-reset" style="color:#e5484d">Reiniciar conteo</button>
   </div>
   <div class="card glass"><h2>Google Drive</h2><p id="conn-msg">Conectar con Google</p>
-    <button class="bigbtn sec" id="b-conn">Conectar con Google</button><button class="bigbtn sec" id="b-sync">Sincronizar ahora</button><button class="bigbtn sec" id="b-reload">Actualizar catálogo desde Drive</button><button class="bigbtn sec" id="b-chg">Cambiar Client ID</button></div>
+    <button class="bigbtn sec" id="b-conn">Conectar con Google</button><button class="bigbtn sec" id="b-sync">Sincronizar ahora</button><button class="bigbtn sec" id="b-reload">Actualizar catálogo desde Drive</button><button class="bigbtn sec" id="b-chg">Cambiar Client ID</button><p class="count" style="margin:12px 0 0;text-align:center">Versión 8</p></div>
   </section>
 
 <nav><div class="bar glass">
@@ -281,7 +281,7 @@ async function updateFile(id,blob,mime){return (await g(`${UP}/${id}?uploadType=
 const getJson=async id=>(await g(`${API}/${id}?alt=media`)).json();
 const jblob=o=>new Blob([JSON.stringify(o)],{type:'application/json'});
 
-let syncing=false,folderOk=false;
+let syncing=false,folderOk=false,autoFix=false;
 async function sync(){
   if(syncing||!idb||!tok())return setStatus(tok()?'ok':'off');
   syncing=true;setStatus('sync');
@@ -315,6 +315,8 @@ async function sync(){
     await kvSet('dirty',0);setStatus('ok');renderAll();
   }catch(e){setStatus(e&&e.code==='auth'?'off':'err');if(e&&e.code==='nofolder')toast('No tengo acceso a la carpeta de Drive. Pide que la compartan con tu correo')}
   syncing=false;
+  // un catálogo guardado antes de existir el stock inicial se refresca solo, una vez
+  if(!autoFix&&catalog.length&&catalog[0].length<10&&tok()){autoFix=true;loadFromDrive()}
 }
 const STXT={off:'Conectar con Google',sync:'Sincronizando…',ok:'Guardado en Drive',pend:'Por subir a Drive',err:'Error al sincronizar'};
 function setStatus(s){const p=$('pill');p.textContent=(s==='ok'?'☁︎ ':s==='off'||s==='err'?'⚠︎ ':'')+STXT[s];p.dataset.s=s;if($('conn-msg'))$('conn-msg').textContent=STXT[s]}
