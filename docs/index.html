@@ -158,7 +158,7 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
     <button class="bigbtn sec" id="b-reset" style="color:#e5484d">Reiniciar conteo</button>
   </div>
   <div class="card glass"><h2>Google Drive</h2><p id="conn-msg">Conectar con Google</p>
-    <button class="bigbtn sec" id="b-conn">Conectar con Google</button><button class="bigbtn sec" id="b-sync">Sincronizar ahora</button><button class="bigbtn sec" id="b-reload">Actualizar catálogo desde Drive</button><button class="bigbtn sec" id="b-chg">Cambiar Client ID</button><p class="count" style="margin:12px 0 0;text-align:center">Versión 8</p></div>
+    <button class="bigbtn sec" id="b-conn">Conectar con Google</button><button class="bigbtn sec" id="b-sync">Sincronizar ahora</button><button class="bigbtn sec" id="b-reload">Actualizar catálogo desde Drive</button><button class="bigbtn sec" id="b-chg">Cambiar Client ID</button><p class="count" style="margin:12px 0 0;text-align:center">Versión 9</p></div>
   </section>
 
 <nav><div class="bar glass">
@@ -214,6 +214,8 @@ const money=n=>'$'+(+n).toFixed(2);
 const num=s=>{const v=parseFloat(String(s).replace(',','.'));return isFinite(v)?v:null};
 const LS=k=>{try{return localStorage.getItem(k)}catch(_){return null}};
 const LSs=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(_){}};
+const DEFAULT_CID='919445495463-6arms5n0litlt84qn886e12b6lqrg3du.apps.googleusercontent.com';
+const cidOf=()=>{const v=LS('cid');return v===null?DEFAULT_CID:v};
 const FOLDER_ID='11p-w_u_Ux4aYX1vNdYzXXUnlwYFuBeT9', FOLDER_NAME='Claude App de Inventario', SRC_NAME='Inventario_Victor_Jr_stock_inicial.xlsx', SCOPE='https://www.googleapis.com/auth/drive';
 
 /* ---------- almacenamiento local (IndexedDB): fuente de verdad en el teléfono ---------- */
@@ -250,7 +252,7 @@ let sy;
 let tc=null;
 const tok=()=>{try{const t=JSON.parse(LS('tk'));return t&&t.exp>Date.now()+60000?t.a:null}catch(_){return null}};
 function initGoogle(){
-  const cid=LS('cid');if(!cid||tc)return;
+  const cid=cidOf();if(!cid||tc)return;
   if(LS('scope')!==SCOPE){LSs('tk',null);LSs('everConnected',null);LSs('scope',SCOPE)}
   if(!window.google||!google.accounts){return setTimeout(initGoogle,400)}
   tc=google.accounts.oauth2.initTokenClient({client_id:cid,scope:SCOPE,callback:()=>{},error_callback:()=>{}});
@@ -362,11 +364,11 @@ $('cat').addEventListener('change',e=>{cat=e.target.value;apply()});
 function refreshRow(id){const el=$('list').querySelector(`[data-id="${CSS.escape(id)}"]`);if(el&&filt==='all'){el.outerHTML=rowHtml(byId.get(id));hydrate()}else apply()}
 const renderAll=()=>{apply();if(!$('p-exp').hidden)stats()};
 
-function changeCid(){LSs('cid',null);LSs('tk',null);LSs('everConnected',null);tc=null;setStatus('off');tab('inv');gate()}
+function changeCid(){LSs('cid','');LSs('tk',null);LSs('everConnected',null);tc=null;setStatus('off');tab('inv');gate()}
 /* ---------- pantalla inicial: Client ID, conectar, importar Excel ---------- */
 function gate(){
   $('count').textContent='';
-  const cid=LS('cid');let h;
+  const cid=cidOf();let h;
   if(!cid)h=`<div class="card" style="margin:0"><h2>Conectar tu Drive</h2>
     <p>Esta app guarda todo en la carpeta “Claude App de Inventario” de Google Drive. Necesita un “Client ID” gratuito que se crea una sola vez.</p>
     <ol style="margin:0 0 14px;padding-left:20px;font-size:14px;line-height:1.5;color:var(--muted)">
