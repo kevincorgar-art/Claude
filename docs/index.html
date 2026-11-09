@@ -158,7 +158,7 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
     <button class="bigbtn sec" id="b-reset" style="color:#e5484d">Reiniciar conteo</button>
   </div>
   <div class="card glass"><h2>Google Drive</h2><p id="conn-msg">Conectar con Google</p>
-    <button class="bigbtn sec" id="b-conn">Conectar con Google</button><button class="bigbtn sec" id="b-sync">Sincronizar ahora</button></div>
+    <button class="bigbtn sec" id="b-conn">Conectar con Google</button><button class="bigbtn sec" id="b-sync">Sincronizar ahora</button><button class="bigbtn sec" id="b-chg">Cambiar Client ID</button></div>
   </section>
 
 <nav><div class="bar glass">
@@ -360,6 +360,7 @@ $('cat').addEventListener('change',e=>{cat=e.target.value;apply()});
 function refreshRow(id){const el=$('list').querySelector(`[data-id="${CSS.escape(id)}"]`);if(el&&filt==='all'){el.outerHTML=rowHtml(byId.get(id));hydrate()}else apply()}
 const renderAll=()=>{apply();if(!$('p-exp').hidden)stats()};
 
+function changeCid(){LSs('cid',null);LSs('tk',null);LSs('everConnected',null);tc=null;setStatus('off');tab('inv');gate()}
 /* ---------- pantalla inicial: Client ID, conectar, importar Excel ---------- */
 function gate(){
   $('count').textContent='';
@@ -374,7 +375,8 @@ function gate(){
     <li>Copia el ID y pégalo aquí.</li></ol>
     <input class="fld" id="g-cid" placeholder="123456-abc.apps.googleusercontent.com" autocapitalize="off" autocomplete="off">
     <button class="bigbtn" id="g-save" style="margin-top:12px">Guardar</button></div>`;
-  else if(!tok()&&!LS('everConnected'))h=`<div class="card" style="margin:0"><h2>Conectar tu Drive</h2><p>Inicia sesión con tu cuenta de Google. Usa una cuenta con acceso a la carpeta “${FOLDER_NAME}”.</p><button class="bigbtn" id="g-conn">Conectar con Google</button></div>`;
+  else if(!tok()&&!LS('everConnected'))h=`<div class="card" style="margin:0"><h2>Conectar tu Drive</h2><p>Inicia sesión con tu cuenta de Google. Usa una cuenta con acceso a la carpeta “${FOLDER_NAME}”.</p><button class="bigbtn" id="g-conn">Conectar con Google</button>
+    <p class="count" style="margin:14px 0 8px;overflow-wrap:anywhere">ID guardado: ${esc(cid)}</p><button class="bigbtn sec" id="g-chg">Cambiar Client ID</button></div>`;
   else h=`<div class="card" style="margin:0"><h2>Cargar el inventario</h2><p id="g-msg">Si el catálogo ya está en Drive, toca Sincronizar. Si no, cárgalo desde el Excel de la carpeta o elige uno del teléfono.</p>
     <button class="bigbtn" id="g-drv">Cargar desde la carpeta de Drive</button>
     <label class="bigbtn sec" style="cursor:pointer">Elegir Excel del teléfono<input id="g-xls" type="file" accept=".xlsx" hidden></label>
@@ -383,9 +385,10 @@ function gate(){
 }
 $('list').addEventListener('click',async e=>{
   const t=e.target;
-  if(t.id==='g-save'){const v=$('g-cid').value.trim();if(!/\.apps\.googleusercontent\.com$/.test(v))return toast('El ID debe terminar en .apps.googleusercontent.com');LSs('cid',v);initGoogle();gate()}
+  if(t.id==='g-save'){const v=$('g-cid').value.replace(/\s+/g,'');if(!/^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/i.test(v))return toast('El ID debe verse así: 123456-abc.apps.googleusercontent.com');LSs('cid',v);initGoogle();gate()}
   else if(t.id==='g-conn'){if(await connect(false)){sync()}else toast('No se pudo conectar con Google');gate()}
   else if(t.id==='g-sync'){sync()}
+  else if(t.id==='g-chg'){changeCid()}
   else if(t.id==='g-drv'){loadFromDrive()}
   else{const b=t.closest('.item');if(b)openSheet(byId.get(b.dataset.id))}
 });
@@ -486,6 +489,7 @@ $('b-reset').onclick=()=>{
 };
 $('b-conn').onclick=async()=>{if(await connect(false))sync();else toast('No se pudo conectar con Google')};
 $('b-sync').onclick=()=>sync();
+$('b-chg').onclick=changeCid;
 
 /* ---------- exportar (varios formatos) ---------- */
 const HEAD=['Código','Descripción','Precio final (con IVA)','IVA','Categoría','Stock','Stock mínimo','Costo','ID AppConto','Posición','Contado','Código de barras'];
