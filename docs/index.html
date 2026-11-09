@@ -171,7 +171,8 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
     <button class="bigbtn sec" id="b-reset" style="color:#e5484d">Reiniciar conteo</button>
   </div>
   <div class="card glass"><h2>Google Drive</h2><p id="conn-msg">Conectar con Google</p>
-    <button class="bigbtn sec" id="b-conn">Conectar con Google</button><button class="bigbtn sec" id="b-sync">Sincronizar ahora</button><button class="bigbtn sec" id="b-reload">Actualizar catálogo desde Drive</button><button class="bigbtn sec" id="b-chg">Cambiar Client ID</button><p class="count" style="margin:12px 0 0;text-align:center">Versión 10</p></div>
+    <input class="fld" id="my-name" placeholder="Tu nombre en el registro" autocomplete="name" autocapitalize="words" style="margin-bottom:10px">
+    <button class="bigbtn sec" id="b-conn">Conectar con Google</button><button class="bigbtn sec" id="b-sync">Sincronizar ahora</button><button class="bigbtn sec" id="b-reload">Actualizar catálogo desde Drive</button><button class="bigbtn sec" id="b-chg">Cambiar Client ID</button><p class="count" style="margin:12px 0 0;text-align:center">Versión 11</p></div>
   </section>
 
 <nav><div class="bar glass">
@@ -330,6 +331,7 @@ async function sync(){
     if(dels.length)await kvSet('del',[]);
     if(push)await (async()=>{const m=Object.fromEntries(ov);fo?await updateFile(fo.id,jblob(m),'application/json'):await createFile('ov.json',folder,jblob(m),'application/json')})();
     try{await syncLog(folder)}catch(e){if(e&&e.code==='auth')throw e}
+    if(!meName&&!nameHint){nameHint=true;toast('Escribe tu nombre en Resumen para que aparezca en el registro')}
     await kvSet('dirty',0);setStatus('ok');renderAll();
   }catch(e){setStatus(e&&e.code==='auth'?'off':'err');if(e&&e.code==='nofolder')toast('No tengo acceso a la carpeta de Drive. Pide que la compartan con tu correo')}
   syncing=false;
@@ -369,7 +371,7 @@ async function syncLog(folder){
   for(const day of new Set([...Object.keys(byDay).filter(d=>d>=first),...dirtyDays])){
     const f=byDay[day];
     if(f&&(f.modifiedTime>((await kvGet('lm-'+day))||'')||dirtyDays.has(day)))
-      for(const e of await getJson(f.id)){const k=e.t+'|'+e.id;if(!logs.has(k)){logs.set(k,e);logPut(k,e)}}
+      for(const e of await getJson(f.id)){const k=e.t+'|'+e.id,l=logs.get(k);if(!l||(!l.u&&e.u)){logs.set(k,e);logPut(k,e)}}
     if(dirtyDays.has(day)){
       const arr=[...logs.values()].filter(e=>dayOf(e.t)===day).sort((a,b)=>a.t-b.t),
         r=f?await updateFile(f.id,jblob(arr),'application/json'):await createFile(`log-${day}.json`,folder,jblob(arr),'application/json');
@@ -379,6 +381,13 @@ async function syncLog(folder){
   kvSet('logdirty',[...dirtyDays]).catch(()=>{});
   for(const [k,e] of logs)if(e.t<since){logs.delete(k);req(st('log','readwrite').delete(k)).catch(()=>{})}
 }
+function setName(n){
+  meName=n.trim();LSs('meName',meName||null);if(!meName)return;let ch=0;
+  for(const [k,e] of logs)if(!e.u){e.u=meName;logPut(k,e);dirtyDays.add(dayOf(e.t));ch=1}
+  if(ch){kvSet('logdirty',[...dirtyDays]).catch(()=>{});markDirty()}
+}
+$('my-name').onchange=e=>{setName(e.target.value);toast(meName?'Nombre guardado':'Se usará el de tu cuenta de Google')};
+let nameHint=false;
 let logLimit=100;
 const AL={edit:'Editó',new:'Agregó',del:'Eliminó',reset:'Reinició',catalog:'Actualizó'};
 function renderLog(){
@@ -551,7 +560,7 @@ $('e-del').onclick=async()=>{
 function tab(n){['inv','log','exp'].forEach(k=>{$('p-'+k).hidden=k!==n;$('t-'+k).toggleAttribute('aria-current',k===n)});
   if(n==='exp')stats();if(n==='log')renderLog();scrollTo(0,0)}
 $('t-inv').onclick=()=>tab('inv');$('t-log').onclick=()=>tab('log');$('t-exp').onclick=()=>tab('exp');
-function stats(){let v=0,pc=0,c=0;ov.forEach((o,id)=>{const i=byId.get(id);if(!i||o.del)return;if(o.p!=null)pc++;if(o.s!=null){c++;v+=o.s*(o.p!=null?o.p:i.price)}});
+function stats(){$('my-name').value=meName;let v=0,pc=0,c=0;ov.forEach((o,id)=>{const i=byId.get(id);if(!i||o.del)return;if(o.p!=null)pc++;if(o.s!=null){c++;v+=o.s*(o.p!=null?o.p:i.price)}});
   $('s-done').textContent=c.toLocaleString('es');$('s-left').textContent=(items.length-c).toLocaleString('es');
   $('s-price').textContent=pc;$('s-val').textContent=money(v)}
 $('b-reset').onclick=()=>{
