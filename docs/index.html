@@ -158,7 +158,7 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
     <button class="bigbtn sec" id="b-reset" style="color:#e5484d">Reiniciar conteo</button>
   </div>
   <div class="card glass"><h2>Google Drive</h2><p id="conn-msg">Conectar con Google</p>
-    <button class="bigbtn sec" id="b-conn">Conectar con Google</button><button class="bigbtn sec" id="b-sync">Sincronizar ahora</button><button class="bigbtn sec" id="b-chg">Cambiar Client ID</button></div>
+    <button class="bigbtn sec" id="b-conn">Conectar con Google</button><button class="bigbtn sec" id="b-sync">Sincronizar ahora</button><button class="bigbtn sec" id="b-reload">Actualizar catálogo desde Drive</button><button class="bigbtn sec" id="b-chg">Cambiar Client ID</button></div>
   </section>
 
 <nav><div class="bar glass">
@@ -398,8 +398,9 @@ async function importXlsx(buf){
     const rows=XLSX.utils.sheet_to_json(ws,{header:1}),h=rows[0].map(norm),ix=n=>h.findIndex(x=>x.startsWith(n)),si=h.indexOf('stock');
     const c=['codigo','descripcion','precio','iva','categoria','stock minimo','costo','id appconto'].map(ix);
     if(c[0]<0||c[1]<0||c[2]<0)throw 0;
+    const keep=catalog.filter(r=>r[8]);
     catalog=rows.slice(1).filter(r=>r[c[0]]!=null&&r[c[1]]).map(r=>[String(r[c[0]]),r[c[1]],r[c[2]],c[3]<0?'':r[c[3]],c[4]<0?'':r[c[4]],c[5]<0?null:r[c[5]],c[6]<0?null:r[c[6]],c[7]<0?'':r[c[7]],'',si<0?0:(+r[si]||0)]);
-    await kvSet('catalog',catalog);await kvSet('catDirty',1);loadItems();apply();toast(catalog.length+' productos cargados');sync();
+    catalog=catalog.concat(keep);await kvSet('catalog',catalog);await kvSet('catDirty',1);loadItems();renderAll();toast('Catálogo actualizado: '+catalog.length+' productos');sync();
   }catch(_){toast('No pude leer ese Excel')}
 }
 $('list').addEventListener('change',async e=>{if(e.target.id!=='g-xls')return;const f=e.target.files[0];if(f)importXlsx(await f.arrayBuffer())});
@@ -490,6 +491,7 @@ $('b-reset').onclick=()=>{
 $('b-conn').onclick=async()=>{if(await connect(false))sync();else toast('No se pudo conectar con Google')};
 $('b-sync').onclick=()=>sync();
 $('b-chg').onclick=changeCid;
+$('b-reload').onclick=()=>{if(!tok())return toast('Conecta Google primero');loadFromDrive()};
 
 /* ---------- exportar (varios formatos) ---------- */
 const HEAD=['Código','Descripción','Precio final (con IVA)','IVA','Categoría','Stock','Stock mínimo','Costo','ID AppConto','Posición','Contado','Código de barras'];
