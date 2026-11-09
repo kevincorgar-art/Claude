@@ -148,7 +148,7 @@ nav button[aria-current="page"]{background:var(--field);color:var(--accent)}
   </div>
   <div class="card glass">
     <h2>Base de datos nueva</h2>
-    <p>Elige el formato. Todos llevan las columnas del original, más Posición, Contado y Código de barras. Lo que no se contó sale con stock 0. También se copia a la carpeta de Drive, sin tocar el Excel original.</p>
+    <p>Elige el formato. Todos llevan las columnas del original, más Posición, Contado y Código de barras. Lo que no se contó sale con su stock inicial. También se copia a la carpeta de Drive, sin tocar el Excel original.</p>
     <select class="fld" id="x-fmt" style="margin-bottom:10px"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV (.csv)</option><option value="json">JSON (.json)</option><option value="sql">SQL (.sql)</option></select>
     <button class="bigbtn" id="b-xlsx">Descargar</button>
   </div>
@@ -214,7 +214,7 @@ const money=n=>'$'+(+n).toFixed(2);
 const num=s=>{const v=parseFloat(String(s).replace(',','.'));return isFinite(v)?v:null};
 const LS=k=>{try{return localStorage.getItem(k)}catch(_){return null}};
 const LSs=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(_){}};
-const FOLDER_ID='11p-w_u_Ux4aYX1vNdYzXXUnlwYFuBeT9', FOLDER_NAME='Claude App de Inventario', SRC_NAME='Inventario_Victor_Jr_LISTO_PARA_IMPORTAR.xlsx', SCOPE='https://www.googleapis.com/auth/drive';
+const FOLDER_ID='11p-w_u_Ux4aYX1vNdYzXXUnlwYFuBeT9', FOLDER_NAME='Claude App de Inventario', SRC_NAME='Inventario_Victor_Jr_stock_inicial.xlsx', SCOPE='https://www.googleapis.com/auth/drive';
 
 /* ---------- almacenamiento local (IndexedDB): fuente de verdad en el teléfono ---------- */
 let idb;
@@ -231,7 +231,7 @@ const ovAll=()=>new Promise(res=>{const o=[];const c=st('ov').openCursor();c.ons
 // fila de catálogo: [codigo, descripcion, precio, iva, categoria, stockMin, costo, idAppConto, idNuevo]
 let catalog=[], items=[], byId=new Map(), view=[], shown=0, filt='all', cat='', cur=null, draft=null, newMode=false, busy=false;
 const ov=new Map();      // id -> {t, s?, p?, pos?, ph?, pf?, del?}   s presente = contado; del = borrado
-const mk=r=>({row:r,code:String(r[0]),desc:r[1],price:+r[2]||0,iva:r[3],cat:r[4]||'',min:r[5],cost:r[6],xid:r[8]?'':r[7],isNew:!!r[8],id:r[8]||String(r[7]),n:norm(r[0]+' '+r[1])});
+const mk=r=>({row:r,code:String(r[0]),desc:r[1],price:+r[2]||0,iva:r[3],cat:r[4]||'',min:r[5],cost:r[6],xid:r[8]?'':r[7],isNew:!!r[8],id:r[8]||String(r[7]),st:+r[9]||0,n:norm(r[0]+' '+r[1])});
 function loadItems(){items=catalog.map(mk);byId=new Map(items.map(i=>[i.id,i]));items.forEach(i=>{i.pn=pnOf(live(i.id))})}
 const pnOf=o=>o&&!o.del?norm((o.pos||'')+' '+(o.bc||'')):'';
 const bkey=c=>String(c==null?'':c).trim().toUpperCase().replace(/^0+(?=\d)/,'');
@@ -350,7 +350,7 @@ function rowHtml(i){
   const sub=[i.code,o&&o.pos?'📍 '+o.pos:'',i.isNew?'Nuevo':''].filter(Boolean).map(esc).join(' · ');
   return `<button class="item" data-id="${esc(i.id)}"><div class="th" ${o&&o.ph?'data-k="1"':''}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg></div>
   <div class="mid"><div class="name">${esc(i.desc)}</div><div class="sub">${sub}</div></div>
-  <div class="end"><div class="price ${o&&o.p!=null?'ch':''}">${money(p)}</div><span class="stock ${c?'on':''}">${c?o.s:0}</span></div></button>`;
+  <div class="end"><div class="price ${o&&o.p!=null?'ch':''}">${money(p)}</div><span class="stock ${c?'on':''}">${c?o.s:i.st}</span></div></button>`;
 }
 function more(){if(shown>=view.length)return;$('list').insertAdjacentHTML('beforeend',view.slice(shown,shown+PAGE).map(rowHtml).join(''));shown+=PAGE;hydrate()}
 new IntersectionObserver(e=>{if(e[0].isIntersecting)more()},{rootMargin:'600px'}).observe($('more'));
@@ -395,10 +395,10 @@ $('list').addEventListener('click',async e=>{
 async function importXlsx(buf){
   try{
     const wb=XLSX.read(buf),ws=wb.Sheets.productos||wb.Sheets[wb.SheetNames[0]];
-    const rows=XLSX.utils.sheet_to_json(ws,{header:1}),h=rows[0].map(norm),ix=n=>h.findIndex(x=>x.startsWith(n));
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1}),h=rows[0].map(norm),ix=n=>h.findIndex(x=>x.startsWith(n)),si=h.indexOf('stock');
     const c=['codigo','descripcion','precio','iva','categoria','stock minimo','costo','id appconto'].map(ix);
     if(c[0]<0||c[1]<0||c[2]<0)throw 0;
-    catalog=rows.slice(1).filter(r=>r[c[0]]!=null&&r[c[1]]).map(r=>[String(r[c[0]]),r[c[1]],r[c[2]],c[3]<0?'':r[c[3]],c[4]<0?'':r[c[4]],c[5]<0?null:r[c[5]],c[6]<0?null:r[c[6]],c[7]<0?'':r[c[7]]]);
+    catalog=rows.slice(1).filter(r=>r[c[0]]!=null&&r[c[1]]).map(r=>[String(r[c[0]]),r[c[1]],r[c[2]],c[3]<0?'':r[c[3]],c[4]<0?'':r[c[4]],c[5]<0?null:r[c[5]],c[6]<0?null:r[c[6]],c[7]<0?'':r[c[7]],'',si<0?0:(+r[si]||0)]);
     await kvSet('catalog',catalog);await kvSet('catDirty',1);loadItems();apply();toast(catalog.length+' productos cargados');sync();
   }catch(_){toast('No pude leer ese Excel')}
 }
@@ -418,7 +418,7 @@ async function openSheet(i,scanned){
   draft={old:o.ph?{ph:o.ph,pf:o.pf}:null,cur:o.ph?{ph:o.ph,pf:o.pf}:null};
   $('e-newf').hidden=!newMode;$('e-del').hidden=!(i&&i.isNew);$('e-del').textContent='Eliminar producto nuevo';
   $('e-name').textContent=i?i.desc:'Producto nuevo';$('e-code').textContent=i?i.code+(i.cat?' · '+i.cat:''):'';
-  $('e-s').value=o.s!=null?o.s:0;$('e-pr').value=(o.p!=null?o.p:i?i.price:0).toFixed(2);$('e-pos').value=o.pos||'';
+  $('e-s').value=o.s!=null?o.s:(i?i.st:0);$('e-pr').value=(o.p!=null?o.p:i?i.price:0).toFixed(2);$('e-pos').value=o.pos||'';
   ['n-desc','n-code','n-cat'].forEach(k=>$(k).value='');$('n-iva').selectedIndex=0;
   $('e-bc').value=pendingBc&&i?pendingBc:(i?bcOf(i):'');if(pendingBc&&i){pendingBc=null;$('assign').hidden=true}
   setThumb(null);show();
@@ -494,7 +494,7 @@ $('b-chg').onclick=changeCid;
 /* ---------- exportar (varios formatos) ---------- */
 const HEAD=['Código','Descripción','Precio final (con IVA)','IVA','Categoría','Stock','Stock mínimo','Costo','ID AppConto','Posición','Contado','Código de barras'];
 const KEYS=['codigo','descripcion','precio_final_con_iva','iva','categoria','stock','stock_minimo','costo','id_appconto','posicion','contado','codigo_barras'];
-const exRows=()=>items.map(i=>{const o=live(i.id),c=counted(i);return[i.code,i.desc,o&&o.p!=null?o.p:i.price,i.iva,i.cat,c?o.s:0,i.min,i.cost,i.xid,o&&o.pos||'',c?'Sí':'No',bcOf(i)]});
+const exRows=()=>items.map(i=>{const o=live(i.id),c=counted(i);return[i.code,i.desc,o&&o.p!=null?o.p:i.price,i.iva,i.cat,c?o.s:i.st,i.min,i.cost,i.xid,o&&o.pos||'',c?'Sí':'No',bcOf(i)]});
 const csvCell=v=>{if(v==null)return'';const t=String(v);return /[",\r\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t};
 const sqlVal=(v,k)=>{if(v===''||v==null)return'NULL';if(k==='contado')return v==='Sí'?1:0;return typeof v==='number'?String(v):"'"+String(v).replace(/'/g,"''")+"'"};
 const FMT={
