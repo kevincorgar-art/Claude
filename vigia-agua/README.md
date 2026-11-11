@@ -19,6 +19,12 @@ y la linea limite que marcaste, y Claude decide SEGURO / CERCA / ALERTA. ALERTA 
    ```
 4. **De dia, con la calle seca**: `python watch.py setup` -> 2 clics para dibujar la linea limite, Enter para guardar (`r` repite).
 
+## iPhone (recomendado: Pushover)
+iOS no puede vigilar en segundo plano; el iPhone solo recibe la alarma. ntfy puede quedar mudo con el interruptor de silencio
+o el modo Concentracion. Con **Pushover** (app de pago unico, unos US$5) la alerta urgente suena igual y se repite cada minuto
+hasta que la confirmes. Crea una app en pushover.net y exporta `PUSHOVER_USER` (tu user key) y `PUSHOVER_TOKEN` (token de la app);
+si estan definidos se usan en vez de ntfy. Prueba la alarma con el telefono en silencio antes de la primera noche.
+
 ## Cada noche
 `python watch.py` (te llega una notificacion de prueba al arrancar). Si la camara o la API fallan 3 veces seguidas, te avisa.
 

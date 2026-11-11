@@ -3,7 +3,7 @@
 Uso:  python watch.py setup   -> marcas la linea limite con 2 clics (de dia, con la calle seca)
       python watch.py         -> vigila en el horario configurado
 """
-import base64, json, os, sys, time, urllib.request
+import base64, json, os, sys, time, urllib.parse, urllib.request
 from datetime import datetime
 
 import anthropic
@@ -58,6 +58,14 @@ def img(data):
 
 
 def notify(title, msg, priority="default"):
+    if os.environ.get("PUSHOVER_TOKEN"):  # en iOS suena aunque este en silencio / No molestar
+        p = {"urgent": 2, "high": 1}.get(priority, 0)
+        d = {"token": os.environ["PUSHOVER_TOKEN"], "user": os.environ["PUSHOVER_USER"],
+             "title": title, "message": msg, "priority": p}
+        if p == 2:
+            d.update(retry=60, expire=3600)  # repite cada 60 s hasta que la confirmes
+        urllib.request.urlopen("https://api.pushover.net/1/messages.json", urllib.parse.urlencode(d).encode(), timeout=15)
+        return
     req = urllib.request.Request(
         f"https://ntfy.sh/{TOPIC}", data=msg.encode(),
         headers={"Title": title, "Priority": priority, "Tags": "warning"},
@@ -90,8 +98,8 @@ def setup():
 
 
 def main():
-    if not (CAM and TOPIC and os.environ.get("ANTHROPIC_API_KEY")):
-        sys.exit("Faltan variables: CAM_URL, NTFY_TOPIC, ANTHROPIC_API_KEY")
+    if not (CAM and (TOPIC or os.environ.get("PUSHOVER_TOKEN")) and os.environ.get("ANTHROPIC_API_KEY")):
+        sys.exit("Faltan variables: CAM_URL, ANTHROPIC_API_KEY y NTFY_TOPIC o PUSHOVER_TOKEN+PUSHOVER_USER")
     if sys.argv[1:] == ["setup"]:
         return setup()
     pts = json.load(open(LINE))
