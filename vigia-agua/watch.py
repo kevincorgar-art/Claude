@@ -9,6 +9,12 @@ from datetime import datetime
 import anthropic
 import cv2
 
+_cfg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.txt")
+if os.path.exists(_cfg):  # config.txt: lineas CLAVE=valor, # comenta
+    for _l in open(_cfg, encoding="utf-8"):
+        if "=" in _l and not _l.lstrip().startswith("#") and _l.split("=", 1)[1].strip():
+            os.environ.setdefault(_l.split("=", 1)[0].strip(), _l.split("=", 1)[1].strip())
+
 CAM = os.environ.get("CAM_URL", "")  # rtsp://usuario:clave@IP:554/Streaming/Channels/102
 TOPIC = os.environ.get("NTFY_TOPIC", "")  # nombre largo y secreto, ej. agua-k3j9x2m7q
 MODEL = os.environ.get("MODEL", "claude-sonnet-5-5")  # claude-haiku-5-5 es mas barato

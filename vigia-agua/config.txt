@@ -1,0 +1,16 @@
+# Llena solo los valores, sin comillas ni espacios. Guarda el archivo. No lo compartas: tiene tus claves.
+
+# Camara: cambia admin, CLAVE e IP. El 102 es la camara 1; la camara 2 es 202, la 3 es 302...
+# Si la clave tiene @ o # escribe %40 o %23
+CAM_URL=rtsp://admin:CLAVE@192.168.1.64:554/Streaming/Channels/102
+
+# console.anthropic.com -> API Keys
+ANTHROPIC_API_KEY=
+
+# pushover.net: tu User Key y el API Token de tu aplicacion
+PUSHOVER_USER=
+PUSHOVER_TOKEN=
+
+# Horario de vigilancia (hora 0-23). Para probar de dia pon FROM_H=0 y TO_H=24
+FROM_H=22
+TO_H=6

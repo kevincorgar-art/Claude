@@ -3,7 +3,13 @@
 Cada 2 min (22:00-06:00 por defecto) saca una foto de la camara, la compara con una foto de la calle seca
 y la linea limite que marcaste, y Claude decide SEGURO / CERCA / ALERTA. ALERTA suena en tu celular.
 
-## Una sola vez
+## Facil (Windows)
+1. Instala Python (python.org) marcando **Add Python to PATH**.
+2. Abre `config.txt` con el Bloc de notas, llena tus datos y guarda.
+3. De dia, con la calle seca: doble clic en `1-configurar-limite.bat` -> 2 clics para la linea limite -> Enter.
+4. Doble clic en `2-iniciar-vigia.bat` y dejalo abierto toda la noche (PC sin suspension).
+
+## Detalle (una sola vez)
 1. **RTSP**: Hik-Connect es nube y no sirve para esto. El script lee la camara por la red de tu casa:
    busca la IP de la camara en tu router (o con SADP de Hikvision) y prueba en VLC la URL
    `rtsp://usuario:clave@IP:554/Streaming/Channels/102` (102 = flujo liviano; si pide, activa RTSP en el menu de la camara).
