@@ -1,5 +1,5 @@
 """Ventana para configurar y lanzar el vigia de agua. Se compila a VigiaAgua.exe (ver .github/workflows)."""
-import json, os, subprocess, sys
+import json, os, secrets, subprocess, sys
 from urllib.parse import quote
 
 DATA = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "VigiaAgua")
@@ -10,8 +10,10 @@ FIELDS = [  # (etiqueta, clave, oculto)
     ("API key de Anthropic", "api", True), ("Pushover User Key", "puser", False),
     ("Pushover API Token", "ptoken", True), ("Vigilar desde la hora (0-23)", "desde", False),
     ("hasta la hora (0-24)", "hasta", False),
+    ("Tema de ntfy (gratis, alternativa)", "ntfy", False),
 ]
-DEFAULTS = {"user": "admin", "canal": "1", "desde": "22", "hasta": "6"}
+OPTIONAL = {"puser", "ptoken", "ntfy"}  # basta ntfy, o Pushover completo
+DEFAULTS = {"user": "admin", "canal": "1", "desde": "22", "hasta": "6", "ntfy": "agua-" + secrets.token_hex(5)}
 
 
 def cam_url(ip, user, pwd, canal):
@@ -22,7 +24,7 @@ def cam_url(ip, user, pwd, canal):
 def env_for(d):
     return dict(
         os.environ, PYINSTALLER_RESET_ENVIRONMENT="1", CAM_URL=cam_url(d["ip"], d["user"], d["pwd"], d["canal"]),
-        ANTHROPIC_API_KEY=d["api"], PUSHOVER_USER=d["puser"], PUSHOVER_TOKEN=d["ptoken"],
+        ANTHROPIC_API_KEY=d["api"], PUSHOVER_USER=d["puser"], PUSHOVER_TOKEN=d["ptoken"], NTFY_TOPIC=d["ntfy"],
         FROM_H=d["desde"], TO_H=d["hasta"],
     )
 
@@ -61,8 +63,8 @@ def main():
 
     def values():
         d = {k: v.get().strip() for k, v in vars_.items()}
-        if not all(d.values()):
-            return messagebox.showerror("Faltan datos", "Llena todos los campos.")
+        if not all(v for k, v in d.items() if k not in OPTIONAL) or not (d["ntfy"] or (d["puser"] and d["ptoken"])):
+            return messagebox.showerror("Faltan datos", "Llena todos los campos y el tema de ntfy o las dos claves de Pushover.")
         try:
             int(d["canal"]); assert 0 <= int(d["desde"]) <= 24 and 0 <= int(d["hasta"]) <= 24
         except (ValueError, AssertionError):

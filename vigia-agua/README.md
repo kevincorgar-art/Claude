@@ -8,6 +8,10 @@ GitHub -> pestana Actions -> ultimo "build-exe" -> Artifacts -> `VigiaAgua-windo
 Abrelo, llena tus datos y usa los botones 1 a 4 en orden. Deja la ventana abierta de noche; cerrarla detiene la vigilancia.
 Los datos se guardan en `%APPDATA%\VigiaAgua`. Windows SmartScreen puede avisar de "editor desconocido": Mas informacion -> Ejecutar de todos modos.
 
+### Alerta gratis (ntfy) o de pago (Pushover)
+En la ventana basta el **tema de ntfy** (ya viene uno al azar; no lo compartas): instala la app gratis **ntfy** en el iPhone,
+toca + y suscribete a ese mismo tema. Si llenas tambien Pushover, se usa Pushover. ntfy no garantiza sonar en silencio / No molestar en iOS.
+
 ## Facil (Windows, sin exe)
 1. Instala Python (python.org) marcando **Add Python to PATH**.
 2. Abre `config.txt` con el Bloc de notas, llena tus datos y guarda.
