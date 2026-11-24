@@ -79,6 +79,14 @@ def notify(title, msg, priority="default"):
     urllib.request.urlopen(req, timeout=15)
 
 
+def ask(client, ref, pts):
+    r = client.messages.create(
+        model=MODEL, max_tokens=100,
+        messages=[{"role": "user", "content": [img(ref), img(b64(draw(grab(), pts))), {"type": "text", "text": PROMPT}]}],
+    )
+    return r.content[0].text.strip()
+
+
 def setup():
     frame, pts = grab(), []
 
@@ -111,16 +119,16 @@ def main():
     pts = json.load(open(LINE))
     ref = b64(cv2.imread(REF))
     client = anthropic.Anthropic()
+    if sys.argv[1:] == ["probar"]:  # una lectura ahora, sin importar el horario
+        return print("Claude dice:", ask(client, ref, pts))
+    if sys.argv[1:] == ["alarma"]:  # prueba del sonido de la alarma en el iPhone
+        return notify("AGUA EN EL LIMITE (PRUEBA)", "Prueba de alarma", "urgent")
     notify("Vigia de agua activo", "Prueba: si lees esto, las alertas llegan.")
     fails, last_alert = 0, 0
     while True:
         if in_window(datetime.now().hour):
             try:
-                r = client.messages.create(
-                    model=MODEL, max_tokens=100,
-                    messages=[{"role": "user", "content": [img(ref), img(b64(draw(grab(), pts))), {"type": "text", "text": PROMPT}]}],
-                )
-                verdict = r.content[0].text.strip()
+                verdict = ask(client, ref, pts)
                 fails = 0
             except Exception as e:
                 fails += 1
