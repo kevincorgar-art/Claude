@@ -3,7 +3,12 @@
 Cada 2 min (22:00-06:00 por defecto) saca una foto de la camara, la compara con una foto de la calle seca
 y la linea limite que marcaste, y Claude decide SEGURO / CERCA / ALERTA. ALERTA suena en tu celular.
 
-## Facil (Windows)
+## Mas facil: VigiaAgua.exe (ventana)
+GitHub -> pestana Actions -> ultimo "build-exe" -> Artifacts -> `VigiaAgua-windows` (zip con VigiaAgua.exe).
+Abrelo, llena tus datos y usa los botones 1 a 4 en orden. Deja la ventana abierta de noche; cerrarla detiene la vigilancia.
+Los datos se guardan en `%APPDATA%\VigiaAgua`. Windows SmartScreen puede avisar de "editor desconocido": Mas informacion -> Ejecutar de todos modos.
+
+## Facil (Windows, sin exe)
 1. Instala Python (python.org) marcando **Add Python to PATH**.
 2. Abre `config.txt` con el Bloc de notas, llena tus datos y guarda.
 3. De dia, con la calle seca: doble clic en `1-configurar-limite.bat` -> 2 clics para la linea limite -> Enter.

@@ -9,7 +9,7 @@ from datetime import datetime
 import anthropic
 import cv2
 
-_cfg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.txt")
+_cfg = "config.txt"  # en la carpeta desde la que se ejecuta
 if os.path.exists(_cfg):  # config.txt: lineas CLAVE=valor, # comenta
     for _l in open(_cfg, encoding="utf-8"):
         if "=" in _l and not _l.lstrip().startswith("#") and _l.split("=", 1)[1].strip():

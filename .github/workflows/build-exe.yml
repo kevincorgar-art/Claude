@@ -1,0 +1,29 @@
+name: build-exe
+on:
+  push:
+    branches: [claude/busy-turing-u4u0va]
+    paths: ["vigia-agua/**", ".github/workflows/build-exe.yml"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: vigia-agua
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyinstaller opencv-python anthropic
+      - run: python test_watch.py
+      - run: pyinstaller --onefile --windowed --name VigiaAgua --collect-all anthropic gui.py
+      - name: smoke test del exe (debe arrancar y quejarse de variables)
+        shell: pwsh
+        run: |
+          Start-Process -Wait -FilePath dist\VigiaAgua.exe -ArgumentList "alarma","smoke.txt"
+          if (-not (Select-String -Path smoke.txt -Pattern "Faltan")) { Get-Content smoke.txt; exit 1 }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VigiaAgua-windows
+          path: vigia-agua/dist/VigiaAgua.exe
